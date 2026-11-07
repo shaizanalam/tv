@@ -26,10 +26,11 @@ export function usePhotoPreloader(
       (currentIndex + 2) % photos.length,
     ];
 
-    // Preload next images into browser memory
+    // Preload next images into browser memory (skip videos)
     indicesToKeep.forEach(idx => {
       const item = photos[idx];
-      if (item && !cacheRef.current.has(idx)) {
+      const isVideo = item?.mimeType?.startsWith('video/') || item?.name?.match(/\.(mp4|mov|webm)$/i);
+      if (item && !isVideo && !cacheRef.current.has(idx)) {
         const img = new Image();
         img.src = getImageUrl(item);
         cacheRef.current.set(idx, img);

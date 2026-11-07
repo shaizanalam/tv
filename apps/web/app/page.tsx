@@ -11,31 +11,31 @@ const FEATURED_ALBUMS = [
     title: 'Dubai 2025',
     id: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
     cover: 'https://lh3.googleusercontent.com/d/1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz=s1000',
-    type: '50 Photos & Videos',
+    type: '351 Photos & Videos',
   },
   {
     title: 'Ajmer Agra 25',
     id: '17rjsvO8qP2dAime91juLLN1q68ADloZS',
     cover: 'https://lh3.googleusercontent.com/d/1GDyj4qioexLHWgWOow3johLzVJrt7DBi=s1000',
-    type: '50 Photos',
+    type: '404 Photos',
   },
   {
     title: 'Meccah & Madina',
     id: '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs',
     cover: 'https://lh3.googleusercontent.com/d/1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0=s1000',
-    type: 'Family Journey',
+    type: '593 Photos & Videos',
   },
   {
     title: 'GoPro-Exports',
     id: '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp',
     cover: 'https://lh3.googleusercontent.com/d/1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z=s1000',
-    type: 'Action Videos',
+    type: '259 Action Videos',
   },
   {
     title: 'Pachmari',
     id: '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC',
     cover: 'https://lh3.googleusercontent.com/d/17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91=s1000',
-    type: 'Nature & Hills',
+    type: '292 Photos & Videos',
   },
 ];
 

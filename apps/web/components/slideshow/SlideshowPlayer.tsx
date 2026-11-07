@@ -1,8 +1,22 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, ArrowLeft, Clock, Shuffle, Film, Frame, ChevronRight, ChevronLeft } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  ArrowLeft,
+  Clock,
+  Shuffle,
+  Frame,
+  ChevronRight,
+  ChevronLeft,
+  Volume2,
+  VolumeX,
+  Maximize2,
+  Minimize2,
+  Sparkles,
+} from 'lucide-react';
 import { DriveItem, TransitionStyle } from '@/lib/types';
 import { usePhotoPreloader } from '@/hooks/usePhotoPreloader';
 
@@ -17,7 +31,7 @@ interface SlideshowPlayerProps {
 export function SlideshowPlayer({
   photos: initialPhotos,
   initialIndex = 0,
-  intervalSeconds: defaultInterval = 8,
+  intervalSeconds: defaultInterval = 7,
   transitionStyle: defaultTransition = 'ken_burns',
   onExit,
 }: SlideshowPlayerProps) {
@@ -27,54 +41,62 @@ export function SlideshowPlayer({
   const [isShuffle, setIsShuffle] = useState(false);
   const [isArtFrame, setIsArtFrame] = useState(false); // Samsung The Frame museum mat mode
   const [duration, setDuration] = useState(defaultInterval);
-  const [transitionStyle, setTransitionStyle] = useState<TransitionStyle>(defaultTransition);
+  const [transitionStyle] = useState<TransitionStyle>(defaultTransition);
   const [showHUD, setShowHUD] = useState(true);
   const [clockStr, setClockStr] = useState('');
+  const [isMuted, setIsMuted] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
 
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const currentPhoto = photos[currentIndex];
 
-  // Helper to construct zero-lag image or video URL
+  // Helper to construct high-speed Google CDN URLs
   const getImageUrl = useCallback((item: DriveItem) => {
     if (item.mimeType?.startsWith('video/')) {
       return `https://drive.google.com/uc?export=download&id=${item.fileId || item.id}`;
     }
-    // High-res preview directly from Google CDN
+    // High-res preview directly from Google CDN (1080p / 4K friendly)
     return `https://lh3.googleusercontent.com/d/${item.fileId || item.id}=s1920`;
   }, []);
 
-  // Activate 3-image memory preloader
+  const getLowResUrl = useCallback((item: DriveItem) => {
+    return `https://lh3.googleusercontent.com/d/${item.fileId || item.id}=s400`;
+  }, []);
+
+  // Activate smart sliding-window memory preloader for JioSphere & TV browsers
   usePhotoPreloader(photos, currentIndex, getImageUrl);
 
-  // Advance photo
+  // Advance photo / video
   const nextPhoto = useCallback(() => {
     setCurrentIndex(prev => (prev + 1) % photos.length);
+    setVideoProgress(0);
   }, [photos.length]);
 
   const prevPhoto = useCallback(() => {
     setCurrentIndex(prev => (prev - 1 + photos.length) % photos.length);
+    setVideoProgress(0);
   }, [photos.length]);
 
   // Shuffle toggle
-  const toggleShuffle = () => {
+  const toggleShuffle = useCallback(() => {
     if (!isShuffle) {
-      // Shuffle array
       const shuffled = [...photos].sort(() => Math.random() - 0.5);
       setPhotos(shuffled);
       setCurrentIndex(0);
       setIsShuffle(true);
     } else {
-      // Reset to original order
       setPhotos(initialPhotos);
       setCurrentIndex(0);
       setIsShuffle(false);
     }
-  };
+  }, [isShuffle, photos, initialPhotos]);
 
-  // Slideshow interval timer
+  // Slideshow interval timer (Photos only; videos advance on ended)
   useEffect(() => {
     if (!isPlaying || photos.length <= 1) return;
-    // For videos, let onEnded handle the transition to the next item
-    if (currentPhoto?.mimeType?.startsWith('video/')) return;
+    const isVideo = currentPhoto?.mimeType?.startsWith('video/');
+    if (isVideo) return; // Wait for video to finish
 
     const timer = setInterval(() => {
       nextPhoto();
@@ -96,19 +118,19 @@ export function SlideshowPlayer({
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-hide HUD after 5 seconds of inactivity
+  // Auto-hide HUD after 4.5 seconds of inactivity
   useEffect(() => {
     if (!showHUD) return;
     const hideTimer = setTimeout(() => {
       setShowHUD(false);
-    }, 5000);
+    }, 4500);
     return () => clearTimeout(hideTimer);
   }, [showHUD, currentIndex]);
 
   // TV Remote & Keyboard Controls
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      setShowHUD(true); // Awaken HUD on any key press
+      setShowHUD(true); // Awaken HUD on any interaction
 
       switch (e.key) {
         case 'ArrowRight':
@@ -134,24 +156,40 @@ export function SlideshowPlayer({
           e.preventDefault();
           setIsArtFrame(prev => !prev);
           break;
+        case 'm':
+        case 'M':
+          e.preventDefault();
+          setIsMuted(prev => !prev);
+          break;
         case 's':
         case 'S':
           e.preventDefault();
           toggleShuffle();
           break;
         default:
+          // Samsung Tizen (10009) & LG WebOS (461) Return keys
           if (e.keyCode === 10009 || e.keyCode === 461) {
             e.preventDefault();
             onExit();
           }
+          // TV Remote Media Play/Pause keys
           if (e.keyCode === 179 || e.keyCode === 415) {
             e.preventDefault();
             setIsPlaying(prev => !prev);
           }
+          // TV Remote Media Next/Prev
+          if (e.keyCode === 228) {
+            e.preventDefault();
+            nextPhoto();
+          }
+          if (e.keyCode === 227) {
+            e.preventDefault();
+            prevPhoto();
+          }
           break;
       }
     },
-    [nextPhoto, prevPhoto, onExit, isShuffle, initialPhotos, photos]
+    [nextPhoto, prevPhoto, onExit, toggleShuffle]
   );
 
   useEffect(() => {
@@ -159,50 +197,50 @@ export function SlideshowPlayer({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Framer Motion Animation Variants
+  // Subtle Cinematic Ken Burns or Crossfade
   const variants = useMemo(() => {
     if (transitionStyle === 'ken_burns' && !isArtFrame) {
       return {
         initial: { opacity: 0, scale: 1.0 },
         animate: {
           opacity: 1,
-          scale: 1.1,
+          scale: 1.08,
           transition: {
-            opacity: { duration: 1.4, ease: 'easeInOut' as const },
+            opacity: { duration: 1.2, ease: 'easeInOut' as const },
             scale: { duration: duration + 1, ease: 'linear' as const },
           },
         },
         exit: {
           opacity: 0,
-          transition: { duration: 1.2, ease: 'easeInOut' as const },
+          transition: { duration: 0.9, ease: 'easeInOut' as const },
         },
       };
     }
 
-    // Default Crossfade
     return {
       initial: { opacity: 0 },
-      animate: { opacity: 1, transition: { duration: 1.4, ease: 'easeInOut' as const } },
-      exit: { opacity: 0, transition: { duration: 1.2, ease: 'easeInOut' as const } },
+      animate: { opacity: 1, transition: { duration: 1.0, ease: 'easeInOut' as const } },
+      exit: { opacity: 0, transition: { duration: 0.8, ease: 'easeInOut' as const } },
     };
   }, [transitionStyle, duration, isArtFrame]);
 
   if (!currentPhoto) return null;
 
   const currentUrl = getImageUrl(currentPhoto);
-  const isCurrentVideo = currentPhoto.mimeType?.startsWith('video/');
+  const lowResUrl = getLowResUrl(currentPhoto);
+  const isCurrentVideo = currentPhoto.mimeType?.startsWith('video/') || !!currentPhoto.name?.match(/\.(mp4|mov|webm)$/i);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black select-none">
-      {/* Blurred Ambient Backdrop for non-16:9 images */}
+    <div className="relative w-screen h-screen overflow-hidden bg-black select-none font-sans">
+      {/* 1. Low-latency Blurred Ambient Glow Backdrop */}
       {!isArtFrame && (
         <div
-          className="absolute inset-0 bg-cover bg-center filter blur-3xl opacity-35 transform scale-110 transition-opacity duration-1000"
-          style={{ backgroundImage: `url(${currentUrl})` }}
+          className="absolute inset-0 bg-cover bg-center filter blur-3xl opacity-30 transform scale-110 pointer-events-none transition-all duration-1000"
+          style={{ backgroundImage: `url(${lowResUrl})` }}
         />
       )}
 
-      {/* Main Media Layer */}
+      {/* 2. Main Media Presentation Layer */}
       <AnimatePresence mode="wait">
         <motion.div
           key={currentPhoto.fileId || currentPhoto.id}
@@ -211,158 +249,213 @@ export function SlideshowPlayer({
           animate="animate"
           exit="exit"
           className={`absolute inset-0 flex items-center justify-center ${
-            isArtFrame ? 'p-12 lg:p-16 bg-[#121214]' : 'p-0'
+            isArtFrame ? 'p-10 lg:p-14 bg-[#141416]' : 'p-0'
           }`}
         >
           {isArtFrame ? (
-            /* Samsung The Frame Museum Matte Border */
-            <div className="relative p-8 md:p-12 bg-[#1c1c1f] rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] border border-stone-800/80 max-h-[90vh] max-w-[90vw] flex items-center justify-center">
+            /* Samsung "The Frame" Museum Mat Border Presentation */
+            <div className="relative p-8 md:p-14 bg-[#f8f6f0] rounded-sm shadow-[0_30px_90px_rgba(0,0,0,0.85)] border-12 border-[#2b2b2e] max-h-[92vh] max-w-[92vw] flex items-center justify-center">
               {isCurrentVideo ? (
                 <video
+                  ref={videoRef}
                   src={currentUrl}
                   autoPlay
                   controls={false}
                   playsInline
+                  muted={isMuted}
                   onEnded={nextPhoto}
-                  className="max-h-[75vh] max-w-[80vw] object-contain shadow-2xl"
+                  onTimeUpdate={e => {
+                    const v = e.currentTarget;
+                    if (v.duration) {
+                      setVideoProgress((v.currentTime / v.duration) * 100);
+                      setVideoDuration(v.duration);
+                    }
+                  }}
+                  className="max-h-[72vh] max-w-[80vw] object-contain shadow-2xl"
                 />
               ) : (
                 <img
                   src={currentUrl}
                   alt={currentPhoto.name}
-                  className="max-h-[75vh] max-w-[80vw] object-contain shadow-2xl"
+                  className="max-h-[72vh] max-w-[80vw] object-contain shadow-2xl"
+                  loading="eager"
                 />
               )}
             </div>
           ) : (
-            /* Edge-to-Edge Clean Presentation */
-            <>
+            /* Edge-to-Edge Cinematic Presentation */
+            <div className="relative w-full h-full flex items-center justify-center">
               {isCurrentVideo ? (
                 <video
+                  ref={videoRef}
                   src={currentUrl}
                   autoPlay
                   controls={false}
                   playsInline
+                  muted={isMuted}
                   onEnded={nextPhoto}
+                  onTimeUpdate={e => {
+                    const v = e.currentTarget;
+                    if (v.duration) {
+                      setVideoProgress((v.currentTime / v.duration) * 100);
+                      setVideoDuration(v.duration);
+                    }
+                  }}
                   className="w-full h-full object-contain drop-shadow-2xl"
                 />
               ) : (
                 <img
                   src={currentUrl}
                   alt={currentPhoto.name}
-                  className="w-full h-full object-contain pointer-events-none drop-shadow-2xl"
+                  className="w-full h-full object-contain drop-shadow-2xl"
+                  loading="eager"
                 />
               )}
-            </>
+            </div>
           )}
         </motion.div>
       </AnimatePresence>
 
-      {/* Subtle Ambient HUD (Auto-Hiding) */}
+      {/* 3. Subtle Ambient HUD (Auto-Hides after 4.5s) */}
       <div
-        className={`absolute inset-0 pointer-events-none transition-opacity duration-700 ${
+        className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ${
           showHUD ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        {/* Top Control Bar */}
+        {/* Top Floating Glass Navigation Bar */}
         <div className="absolute top-8 left-10 right-10 flex items-center justify-between">
-          <div className="flex items-center gap-3 bg-zinc-950/85 backdrop-blur-md px-4 py-2 rounded-full border border-zinc-800/80">
+          {/* Back Pill */}
+          <div className="flex items-center gap-3 bg-black/60 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/15 shadow-xl">
             <button
               onClick={onExit}
-              className="pointer-events-auto flex items-center gap-2 text-stone-200 text-sm font-medium hover:text-amber-400 transition-colors"
+              className="pointer-events-auto flex items-center gap-2 text-white/90 text-xs font-medium hover:text-white transition-all cursor-pointer"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to Albums</span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Library</span>
             </button>
-            <span className="text-zinc-600">|</span>
-            <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-mono">
-              <span>{currentIndex + 1}</span>
+            <span className="text-white/30">|</span>
+            <div className="flex items-center gap-1.5 text-xs text-white/70 font-mono">
+              <span className="text-white font-semibold">{currentIndex + 1}</span>
               <span>/</span>
               <span>{photos.length}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-zinc-950/85 backdrop-blur-md px-4 py-2 rounded-full border border-zinc-800/80 text-stone-200">
-            {/* Play/Pause Button */}
+          {/* Right Floating Control Cluster */}
+          <div className="flex items-center gap-3 bg-black/60 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/15 shadow-xl text-white">
+            {/* Play/Pause */}
             <button
               onClick={() => setIsPlaying(p => !p)}
-              className="pointer-events-auto flex items-center gap-2 text-xs font-medium hover:text-amber-400 transition-colors"
+              className="pointer-events-auto flex items-center gap-2 text-xs font-medium hover:text-white transition-colors cursor-pointer"
             >
               {isPlaying ? (
                 <>
-                  <Play className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                  <span>Playing ({duration}s)</span>
+                  <Pause className="w-3.5 h-3.5 fill-white" />
+                  <span>Playing</span>
                 </>
               ) : (
                 <>
-                  <Pause className="w-3.5 h-3.5 text-zinc-400" />
+                  <Play className="w-3.5 h-3.5 fill-white" />
                   <span>Paused</span>
                 </>
               )}
             </button>
 
-            <span className="text-zinc-600">|</span>
+            {isCurrentVideo && (
+              <>
+                <span className="text-white/30">|</span>
+                {/* Audio Mute/Unmute */}
+                <button
+                  onClick={() => setIsMuted(m => !m)}
+                  className="pointer-events-auto flex items-center gap-1.5 text-xs font-medium hover:text-white transition-colors cursor-pointer"
+                  title="Toggle Audio (M key)"
+                >
+                  {isMuted ? (
+                    <VolumeX className="w-3.5 h-3.5 text-red-400" />
+                  ) : (
+                    <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                  <span>{isMuted ? 'Muted' : 'Audio On'}</span>
+                </button>
+              </>
+            )}
 
-            {/* Shuffle Button */}
+            <span className="text-white/30">|</span>
+
+            {/* Shuffle */}
             <button
               onClick={toggleShuffle}
-              className={`pointer-events-auto p-1.5 rounded-md text-xs flex items-center gap-1.5 transition-colors ${
-                isShuffle ? 'text-amber-400 bg-amber-400/10' : 'text-zinc-400 hover:text-stone-200'
+              className={`pointer-events-auto p-1 rounded-md text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
+                isShuffle ? 'text-amber-300 font-semibold' : 'text-white/70 hover:text-white'
               }`}
-              title="Toggle Shuffle"
             >
               <Shuffle className="w-3.5 h-3.5" />
               <span>Shuffle</span>
             </button>
 
-            <span className="text-zinc-600">|</span>
+            <span className="text-white/30">|</span>
 
-            {/* Museum Art Frame Mode */}
+            {/* Museum Art Frame Toggle */}
             <button
               onClick={() => setIsArtFrame(f => !f)}
-              className={`pointer-events-auto p-1.5 rounded-md text-xs flex items-center gap-1.5 transition-colors ${
-                isArtFrame ? 'text-amber-400 bg-amber-400/10' : 'text-zinc-400 hover:text-stone-200'
+              className={`pointer-events-auto p-1 rounded-md text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
+                isArtFrame ? 'text-amber-300 font-semibold' : 'text-white/70 hover:text-white'
               }`}
-              title="The Frame Art Mat Mode"
             >
               <Frame className="w-3.5 h-3.5" />
-              <span>Art Frame</span>
+              <span>Art Frame (F)</span>
             </button>
 
-            <span className="text-zinc-600">|</span>
+            <span className="text-white/30">|</span>
 
-            {/* Live Clock */}
-            <div className="flex items-center gap-1.5 text-sm font-light text-stone-300">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
+            {/* Ambient Clock */}
+            <div className="flex items-center gap-1.5 text-xs font-light text-white/90">
+              <Clock className="w-3 h-3 text-amber-300" />
               <span>{clockStr}</span>
             </div>
           </div>
         </div>
 
-        {/* Bottom Filmstrip Scrubber & Info */}
+        {/* Video Scrubber (Appears when video is playing) */}
+        {isCurrentVideo && (
+          <div className="absolute top-22 left-10 right-10">
+            <div className="w-full bg-white/20 h-1 rounded-full overflow-hidden backdrop-blur-sm">
+              <div
+                className="bg-amber-400 h-full transition-all duration-200"
+                style={{ width: `${videoProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Scrubber & Metadata Bar */}
         <div className="absolute bottom-8 left-10 right-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
-          {/* Metadata Card */}
-          <div className="max-w-xl bg-zinc-950/85 backdrop-blur-md px-6 py-4 rounded-2xl border border-zinc-800/80 shadow-2xl">
-            <h2 className="text-xl md:text-2xl font-light tracking-wide text-stone-100 truncate">
+          {/* Item Meta Card */}
+          <div className="max-w-lg bg-black/60 backdrop-blur-2xl px-6 py-4 rounded-2xl border border-white/15 shadow-xl">
+            <h2 className="text-lg md:text-xl font-medium tracking-tight text-white truncate">
               {currentPhoto.name.replace(/\.[^/.]+$/, '')}
             </h2>
-            <div className="flex items-center gap-3 text-xs text-zinc-400 font-normal mt-1">
-              <span>{isCurrentVideo ? 'Video Clip (Plays full duration)' : 'High-Res Photograph'}</span>
+            <div className="flex items-center gap-2.5 text-xs text-white/60 font-light mt-1">
+              <span className="uppercase tracking-wider font-mono text-[10px] bg-white/10 px-2 py-0.5 rounded text-amber-300">
+                {isCurrentVideo ? 'MP4 Video' : 'Original Photo'}
+              </span>
               <span>·</span>
-              <span>Use Left/Right to Navigate</span>
+              <span>Item {currentIndex + 1} of {photos.length}</span>
+              <span>·</span>
+              <span className="text-white/40">D-pad Left/Right to skip</span>
             </div>
           </div>
 
           {/* Interactive Filmstrip Scrubber */}
-          <div className="pointer-events-auto flex items-center gap-2 bg-zinc-950/85 backdrop-blur-md p-2 rounded-2xl border border-zinc-800/80 shadow-2xl overflow-x-auto max-w-2xl">
+          <div className="pointer-events-auto flex items-center gap-2 bg-black/60 backdrop-blur-2xl p-2 rounded-2xl border border-white/15 shadow-xl overflow-x-auto max-w-2xl">
             <button
               onClick={prevPhoto}
-              className="p-2 text-zinc-400 hover:text-amber-400 transition-colors"
+              className="p-2 text-white/60 hover:text-white transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
 
-            {photos.slice(Math.max(0, currentIndex - 3), currentIndex + 4).map((p, i) => {
+            {photos.slice(Math.max(0, currentIndex - 3), currentIndex + 4).map(p => {
               const actualIdx = photos.indexOf(p);
               const isSelected = actualIdx === currentIndex;
               return (
@@ -371,8 +464,8 @@ export function SlideshowPlayer({
                   onClick={() => setCurrentIndex(actualIdx)}
                   className={`cursor-pointer rounded-lg overflow-hidden shrink-0 transition-all duration-200 ${
                     isSelected
-                      ? 'w-16 h-12 ring-2 ring-amber-400 scale-105 opacity-100 shadow-md'
-                      : 'w-14 h-10 opacity-50 hover:opacity-90'
+                      ? 'w-16 h-12 ring-2 ring-white scale-105 opacity-100 shadow-md'
+                      : 'w-13 h-9 opacity-45 hover:opacity-90'
                   }`}
                 >
                   <img
@@ -387,7 +480,7 @@ export function SlideshowPlayer({
 
             <button
               onClick={nextPhoto}
-              className="p-2 text-zinc-400 hover:text-amber-400 transition-colors"
+              className="p-2 text-white/60 hover:text-white transition-colors cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
