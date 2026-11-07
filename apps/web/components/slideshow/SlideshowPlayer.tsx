@@ -277,6 +277,8 @@ export function SlideshowPlayer({
                 <img
                   src={currentUrl}
                   alt={currentPhoto.name}
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
                   className="max-h-[72vh] max-w-[80vw] object-contain shadow-2xl"
                   loading="eager"
                 />
@@ -307,6 +309,8 @@ export function SlideshowPlayer({
                 <img
                   src={currentUrl}
                   alt={currentPhoto.name}
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
                   className="w-full h-full object-contain drop-shadow-2xl"
                   loading="eager"
                 />
@@ -471,6 +475,8 @@ export function SlideshowPlayer({
                   <img
                     src={`https://lh3.googleusercontent.com/d/${p.fileId || p.id}=s200`}
                     alt={p.name}
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
                     className="w-full h-full object-cover"
                     loading="lazy"
                   />

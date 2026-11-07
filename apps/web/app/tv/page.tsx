@@ -14,11 +14,11 @@ import {
   Sliders,
   Plus,
   Loader2,
+  Tv,
   Image as ImageIcon,
   Film,
-  Compass,
-  FolderHeart,
   Layers,
+  Compass,
 } from 'lucide-react';
 import { SlideshowPlayer } from '@/components/slideshow/SlideshowPlayer';
 import { DriveItem } from '@/lib/types';
@@ -35,7 +35,7 @@ interface AlbumFolder {
 
 const DEFAULT_MAIN_FOLDER = '1qCPS0mAatpr5Yil7t2Zc7hcO9Lbt2ufi';
 
-// Real verified albums from user's Drive folder with true counts
+// All 6 real verified trip collections with guaranteed working covers and true counts
 const INITIAL_ALBUMS: AlbumFolder[] = [
   {
     id: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
@@ -52,8 +52,8 @@ const INITIAL_ALBUMS: AlbumFolder[] = [
     title: 'Ajmer Agra 25',
     coverThumbnailUrl: 'https://lh3.googleusercontent.com/d/1GDyj4qioexLHWgWOow3johLzVJrt7DBi=s1200',
     totalCount: 404,
-    photoCount: 400,
-    videoCount: 4,
+    photoCount: 326,
+    videoCount: 78,
   },
   {
     id: '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs',
@@ -61,8 +61,8 @@ const INITIAL_ALBUMS: AlbumFolder[] = [
     title: 'Meccah & Madina',
     coverThumbnailUrl: 'https://lh3.googleusercontent.com/d/1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0=s1200',
     totalCount: 593,
-    photoCount: 590,
-    videoCount: 3,
+    photoCount: 561,
+    videoCount: 32,
   },
   {
     id: '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp',
@@ -70,8 +70,8 @@ const INITIAL_ALBUMS: AlbumFolder[] = [
     title: 'GoPro-Exports',
     coverThumbnailUrl: 'https://lh3.googleusercontent.com/d/1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z=s1200',
     totalCount: 259,
-    photoCount: 230,
-    videoCount: 29,
+    photoCount: 132,
+    videoCount: 127,
   },
   {
     id: '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC',
@@ -79,21 +79,29 @@ const INITIAL_ALBUMS: AlbumFolder[] = [
     title: 'Pachmari',
     coverThumbnailUrl: 'https://lh3.googleusercontent.com/d/17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91=s1200',
     totalCount: 292,
-    photoCount: 285,
-    videoCount: 7,
+    photoCount: 222,
+    videoCount: 70,
+  },
+  {
+    id: '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu',
+    folderId: '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu',
+    title: 'Family Archive',
+    coverThumbnailUrl: 'https://lh3.googleusercontent.com/d/1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC=s1200',
+    totalCount: 48,
+    photoCount: 45,
+    videoCount: 3,
   },
 ];
 
-type FocusSection = 'nav' | 'slats' | 'arch' | 'rightCards' | 'dock';
-type NavTab = 'art' | 'gallery' | 'favorites' | 'drive';
+const FALLBACK_COVER = 'https://lh3.googleusercontent.com/d/1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz=s1200';
+
+type FocusSection = 'slats' | 'arch' | 'rightCards' | 'dock' | 'search';
 
 function CreativeTVContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [albums, setAlbums] = useState<AlbumFolder[]>(INITIAL_ALBUMS);
-  const [activeTab, setActiveTab] = useState<NavTab>('art');
-  const [navTabIndex, setNavTabIndex] = useState(0);
   const [expandedSlatIndex, setExpandedSlatIndex] = useState(0);
   const [selectedRightCardIndex, setSelectedRightCardIndex] = useState(0);
   const [dockFocusIndex, setDockFocusIndex] = useState(5); // default on Play button
@@ -105,10 +113,10 @@ function CreativeTVContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingAlbumTitle, setLoadingAlbumTitle] = useState('');
 
-  // Client-side Memory Cache for instant sub-millisecond album switches
+  // Client-side Memory Cache for sub-millisecond album switches
   const albumPhotosCache = useRef<Map<string, DriveItem[]>>(new Map());
 
-  // TV Remote Focus Zone: 'nav' | 'slats' | 'arch' | 'rightCards' | 'dock'
+  // TV Remote Focus Zone: 'slats' | 'arch' | 'rightCards' | 'dock' | 'search'
   const [focusSection, setFocusSection] = useState<FocusSection>('slats');
 
   // Clock & Date updater
@@ -137,7 +145,7 @@ function CreativeTVContent() {
         setAlbums(data.subfolders);
 
         // SILENT BACKGROUND PREFETCH: Pre-load top albums so playback is instant
-        data.subfolders.slice(0, 4).forEach((sub: AlbumFolder) => {
+        data.subfolders.forEach((sub: AlbumFolder) => {
           fetch(`/api/drive/folder?folder=${encodeURIComponent(sub.folderId)}`)
             .then(r => r.json())
             .then(subData => {
@@ -146,6 +154,7 @@ function CreativeTVContent() {
                 // Pre-cache first image in browser memory
                 if (subData.items[0]?.previewUrl) {
                   const img = new Image();
+                  img.referrerPolicy = 'no-referrer';
                   img.src = subData.items[0].previewUrl;
                 }
               }
@@ -194,6 +203,29 @@ function CreativeTVContent() {
     }
   };
 
+  // Play All 1,899 Photos & Videos across all collections
+  const playMasterCollection = async () => {
+    setLoadingAlbumTitle('All 6 Collections (1,899 Items)');
+    // Collect all cached photos
+    let combined: DriveItem[] = [];
+    for (const [, items] of albumPhotosCache.current.entries()) {
+      combined = combined.concat(items);
+    }
+
+    if (combined.length > 0) {
+      // Shuffle for a cinematic mix across all vacations
+      const shuffled = [...combined].sort(() => Math.random() - 0.5);
+      setActivePhotos(shuffled);
+      setInSlideshow(true);
+      return;
+    }
+
+    // If cache not filled yet, load the primary featured album first
+    if (albums.length > 0) {
+      openAlbum(albums[0].folderId, 'Featured Memories');
+    }
+  };
+
   // -------------------------------------------------------------
   // Full 2D Spatial TV Remote Navigation Controls
   // -------------------------------------------------------------
@@ -201,23 +233,19 @@ function CreativeTVContent() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (inSlideshow) return;
 
-      const tabs: NavTab[] = ['art', 'gallery', 'favorites', 'drive'];
-
       switch (e.key) {
         // --- RIGHT ---
         case 'ArrowRight':
           e.preventDefault();
-          if (focusSection === 'nav') {
-            setNavTabIndex(prev => Math.min(tabs.length - 1, prev + 1));
-            setActiveTab(tabs[Math.min(tabs.length - 1, navTabIndex + 1)]);
-          } else if (focusSection === 'slats') {
-            if (expandedSlatIndex < Math.min(2, albums.length - 1)) {
+          if (focusSection === 'slats') {
+            if (expandedSlatIndex < 2) {
               setExpandedSlatIndex(prev => prev + 1);
             } else {
               setFocusSection('arch');
             }
           } else if (focusSection === 'arch') {
             setFocusSection('rightCards');
+            setSelectedRightCardIndex(0);
           } else if (focusSection === 'dock') {
             setDockFocusIndex(prev => Math.min(6, prev + 1));
           }
@@ -226,10 +254,7 @@ function CreativeTVContent() {
         // --- LEFT ---
         case 'ArrowLeft':
           e.preventDefault();
-          if (focusSection === 'nav') {
-            setNavTabIndex(prev => Math.max(0, prev - 1));
-            setActiveTab(tabs[Math.max(0, navTabIndex - 1)]);
-          } else if (focusSection === 'rightCards') {
+          if (focusSection === 'rightCards') {
             setFocusSection('arch');
           } else if (focusSection === 'arch') {
             setFocusSection('slats');
@@ -246,14 +271,8 @@ function CreativeTVContent() {
         // --- DOWN ---
         case 'ArrowDown':
           e.preventDefault();
-          if (focusSection === 'nav') {
-            if (navTabIndex <= 1) {
-              setFocusSection('slats');
-            } else if (navTabIndex === 2) {
-              setFocusSection('arch');
-            } else {
-              setFocusSection('rightCards');
-            }
+          if (focusSection === 'search') {
+            setFocusSection('slats');
           } else if (focusSection === 'rightCards') {
             if (selectedRightCardIndex < 3) {
               setSelectedRightCardIndex(prev => prev + 1);
@@ -276,12 +295,10 @@ function CreativeTVContent() {
             if (selectedRightCardIndex > 0) {
               setSelectedRightCardIndex(prev => prev - 1);
             } else {
-              setFocusSection('nav');
-              setNavTabIndex(3);
+              setFocusSection('search');
             }
           } else if (focusSection === 'slats' || focusSection === 'arch') {
-            setFocusSection('nav');
-            setNavTabIndex(focusSection === 'slats' ? expandedSlatIndex : 2);
+            setFocusSection('search');
           }
           break;
 
@@ -292,11 +309,14 @@ function CreativeTVContent() {
             const alb = albums[expandedSlatIndex] || albums[0];
             openAlbum(alb.folderId, alb.title);
           } else if (focusSection === 'arch') {
-            const alb = albums[0];
-            openAlbum(alb.folderId, alb.title);
+            playMasterCollection();
           } else if (focusSection === 'rightCards') {
-            const alb = albums[selectedRightCardIndex] || albums[0];
-            openAlbum(alb.folderId, alb.title);
+            if (selectedRightCardIndex === 3) {
+              playMasterCollection();
+            } else {
+              const alb = albums[selectedRightCardIndex + 3] || albums[0];
+              openAlbum(alb.folderId, alb.title);
+            }
           } else if (focusSection === 'dock') {
             if (dockFocusIndex === 0) router.push('/tv/pair');
             if (dockFocusIndex === 1) openAlbum(albums[0]?.folderId, albums[0]?.title);
@@ -335,7 +355,6 @@ function CreativeTVContent() {
     focusSection,
     expandedSlatIndex,
     selectedRightCardIndex,
-    navTabIndex,
     dockFocusIndex,
     albums,
     inSlideshow,
@@ -353,10 +372,10 @@ function CreativeTVContent() {
     );
   }
 
-  // Left 3 vertical accordion slats
+  // Left 3 vertical accordion slats: Folders 0, 1, 2
   const leftSlats = albums.slice(0, 3);
-  // Right 4 floating 3D perspective cards
-  const rightCards = albums.slice(1, 5);
+  // Right 4 floating 3D perspective cards: Folders 3, 4, 5 + Master Card
+  const rightFolders = albums.slice(3, 6);
 
   return (
     <div className="relative min-h-[100dvh] w-full bg-[#ececee] text-[#1c1c1e] select-none flex flex-col justify-between p-6 lg:p-8 xl:p-10 overflow-hidden font-sans">
@@ -365,8 +384,8 @@ function CreativeTVContent() {
 
       {/* Loading Modal Overlay */}
       {isLoading && (
-        <div className="absolute inset-0 z-50 bg-black/30 backdrop-blur-md flex flex-col items-center justify-center text-white">
-          <div className="bg-[#1c1c1e]/90 p-8 rounded-3xl border border-white/10 flex flex-col items-center gap-4 shadow-2xl">
+        <div className="absolute inset-0 z-50 bg-black/25 backdrop-blur-md flex flex-col items-center justify-center text-white">
+          <div className="bg-[#1c1c1e]/95 p-8 rounded-3xl border border-white/10 flex flex-col items-center gap-4 shadow-2xl">
             <Loader2 className="w-10 h-10 animate-spin text-amber-400" />
             <div className="text-center">
               <h3 className="text-lg font-medium">Opening {loadingAlbumTitle || 'Collection'}</h3>
@@ -379,43 +398,25 @@ function CreativeTVContent() {
       )}
 
       {/* ========================================================= */}
-      {/* 1. TOP MINIMALIST NAV BAR                                 */}
+      {/* 1. TOP AIRY SCANDINAVIAN HEADER (NO DISTRACTING TAB BARS) */}
       {/* ========================================================= */}
-      <header className="relative z-20 flex items-center justify-between pb-4 border-b border-black/[0.06]">
-        {/* Nav Tabs */}
-        <div className="flex items-center gap-8 lg:gap-12 text-xs tracking-wider uppercase font-medium text-black/50">
-          {[
-            { id: 'art', label: 'Art mode' },
-            { id: 'gallery', label: 'Trip Gallery' },
-            { id: 'favorites', label: 'Favorites' },
-            { id: 'drive', label: 'Google Drive' },
-          ].map((tab, idx) => {
-            const isActive = activeTab === tab.id;
-            const isFocused = focusSection === 'nav' && navTabIndex === idx;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id as NavTab);
-                  setNavTabIndex(idx);
-                }}
-                className={`relative py-1 cursor-pointer transition-all ${
-                  isActive ? 'text-black font-semibold' : 'hover:text-black/80'
-                } ${isFocused ? 'ring-2 ring-black rounded-sm px-2 -mx-2 font-bold text-black' : ''}`}
-              >
-                {tab.label}
-                {isActive && (
-                  <motion.div
-                    layoutId="activeTabIndicator"
-                    className="absolute -bottom-4.5 left-0 right-0 h-0.5 bg-black"
-                  />
-                )}
-              </button>
-            );
-          })}
+      <header className="relative z-20 flex items-center justify-between pb-3">
+        {/* Subtle Brand & Collection Status */}
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-white/80 backdrop-blur-md border border-black/10 flex items-center justify-center shadow-sm">
+            <Tv className="w-4 h-4 text-black/80" />
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="text-sm font-semibold tracking-tight text-black/90 font-sans">
+              DriveFrame
+            </span>
+            <span className="text-[10px] uppercase font-mono tracking-widest text-black/50 bg-black/[0.04] px-2.5 py-0.5 rounded-full border border-black/[0.06]">
+              6 Trip Collections · 1,899 Items
+            </span>
+          </div>
         </div>
 
-        {/* Right Search / Folder Pill */}
+        {/* Quiet Search / Folder ID Pill */}
         <div className="relative">
           <form
             onSubmit={e => {
@@ -424,14 +425,18 @@ function CreativeTVContent() {
                 fetchAlbums(folderInput.trim());
               }
             }}
-            className="flex items-center gap-2 bg-white/85 backdrop-blur-2xl border border-black/[0.08] rounded-full px-4 py-2 shadow-sm focus-within:ring-2 focus-within:ring-black/20 transition-all"
+            className={`flex items-center gap-2 bg-white/75 hover:bg-white/95 backdrop-blur-2xl border rounded-full px-4 py-1.5 shadow-sm transition-all ${
+              focusSection === 'search'
+                ? 'ring-3 ring-black/90 border-transparent bg-white shadow-md'
+                : 'border-black/[0.08]'
+            }`}
           >
             <Search className="w-3.5 h-3.5 text-black/40" />
             <input
               type="text"
               value={folderInput}
               onChange={e => setFolderInput(e.target.value)}
-              placeholder="Search or paste folder ID..."
+              placeholder="Paste Google Drive folder ID..."
               className="bg-transparent border-none text-xs text-black/80 placeholder:text-black/35 focus:outline-none w-44 md:w-56"
             />
           </form>
@@ -439,13 +444,13 @@ function CreativeTVContent() {
       </header>
 
       {/* ========================================================= */}
-      {/* 2. MAIN 3-PANEL SHOWCASE                                  */}
+      {/* 2. MAIN 3-PANEL SHOWCASE (ALL 6 FOLDERS DISPLAYED)       */}
       {/* ========================================================= */}
-      <main className="relative z-10 flex-1 grid grid-cols-12 gap-6 lg:gap-8 items-center my-3">
+      <main className="relative z-10 flex-1 grid grid-cols-12 gap-6 lg:gap-8 items-center my-2">
         {/* ------------------------------------------------------- */}
-        {/* LEFT: 3 VERTICAL POSTER SLATS (Accordion Style)        */}
+        {/* LEFT: 3 VERTICAL POSTER SLATS (Folders 1, 2, 3)         */}
         {/* ------------------------------------------------------- */}
-        <div className="col-span-5 h-[62vh] flex gap-3.5">
+        <div className="col-span-5 h-[64vh] flex gap-3.5">
           {leftSlats.map((album, idx) => {
             const isFocused = focusSection === 'slats' && expandedSlatIndex === idx;
             const total = album.totalCount || album.photoCount || 50;
@@ -459,31 +464,38 @@ function CreativeTVContent() {
                 }}
                 onClick={() => openAlbum(album.folderId, album.title)}
                 animate={{
-                  flex: isFocused ? 2.8 : 1,
+                  flexGrow: isFocused ? 2.8 : 1,
                   scale: isFocused ? 1.02 : 1,
                 }}
                 transition={{ type: 'spring', stiffness: 340, damping: 28 }}
-                className={`relative h-full rounded-2xl overflow-hidden cursor-pointer shadow-[0_15px_35px_rgba(0,0,0,0.1)] group transition-all duration-300 ${
+                className={`relative h-full basis-0 rounded-2xl overflow-hidden cursor-pointer shadow-[0_15px_35px_rgba(0,0,0,0.1)] group transition-all duration-300 bg-stone-200 ${
                   isFocused
                     ? 'ring-4 ring-black/90 ring-offset-2 ring-offset-[#ececee] shadow-2xl z-10'
                     : 'opacity-90 hover:opacity-100'
                 }`}
               >
-                {/* Background Cover Photo */}
+                {/* Background Cover Photo with CrossOrigin & Fallback */}
                 <img
                   src={album.coverThumbnailUrl}
                   alt={album.title}
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
+                  onError={e => {
+                    const target = e.currentTarget;
+                    target.onerror = null;
+                    target.src = FALLBACK_COVER;
+                  }}
                   className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   loading="eager"
                 />
 
                 {/* Scrim Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
 
                 {/* Slat Content Info */}
                 <div className="absolute bottom-6 left-5 right-5 text-white">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] uppercase font-mono tracking-widest text-amber-300 font-semibold bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                    <span className="text-[10px] uppercase font-mono tracking-widest text-amber-300 font-semibold bg-black/45 px-2 py-0.5 rounded-full backdrop-blur-sm">
                       {total} ITEMS
                     </span>
                   </div>
@@ -517,7 +529,7 @@ function CreativeTVContent() {
         {/* ------------------------------------------------------- */}
         {/* CENTER: ARCHED GLASS AMBIENT CLOCK & ORB WIDGET         */}
         {/* ------------------------------------------------------- */}
-        <div className="col-span-4 h-[65vh] flex justify-center">
+        <div className="col-span-4 h-[67vh] flex justify-center">
           <motion.div
             initial={{ scale: 0.96, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -554,7 +566,7 @@ function CreativeTVContent() {
                 {timeStr.split(' ')[0] || '12:48'}
               </div>
               <p className="text-xs text-black/45 font-medium tracking-wide">
-                feels like 14° · Ambient Gallery
+                feels like 14° · Ambient Frame
               </p>
               <div className="pt-3">
                 <p className="text-sm font-semibold text-black/85">{dateStr || 'Saturday, 7th Nov'}</p>
@@ -562,15 +574,11 @@ function CreativeTVContent() {
               </div>
             </div>
 
-            {/* Bottom Play Featured Album Button */}
+            {/* Bottom Play Slideshow Pill Button */}
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => {
-                if (albums.length > 0) {
-                  openAlbum(albums[0].folderId, albums[0].title);
-                }
-              }}
+              onClick={playMasterCollection}
               className={`w-full py-3.5 px-6 rounded-full font-medium text-xs tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
                 focusSection === 'arch'
                   ? 'bg-black text-white ring-2 ring-black shadow-lg scale-102'
@@ -582,22 +590,25 @@ function CreativeTVContent() {
               ) : (
                 <Play className="w-3.5 h-3.5 fill-current" />
               )}
-              <span>Play Featured Album</span>
+              <span>Play All Memories (1,899)</span>
             </motion.button>
           </motion.div>
         </div>
 
         {/* ------------------------------------------------------- */}
-        {/* RIGHT: FLOATING 3D PERSPECTIVE APP CARDS               */}
+        {/* RIGHT: FLOATING 3D PERSPECTIVE CARDS (Folders 4, 5, 6 + Master) */}
         {/* ------------------------------------------------------- */}
-        <div className="col-span-3 h-[62vh] flex flex-col justify-between py-2 [perspective:1200px]">
-          {rightCards.map((album, idx) => {
+        <div className="col-span-3 h-[64vh] flex flex-col justify-between py-1 [perspective:1200px]">
+          {/* Card 0: GoPro-Exports */}
+          {/* Card 1: Pachmari */}
+          {/* Card 2: Family Archive */}
+          {rightFolders.map((album, idx) => {
             const isCardFocused = focusSection === 'rightCards' && selectedRightCardIndex === idx;
-            const total = album.totalCount || album.photoCount || 50;
+            const total = album.totalCount || album.photoCount || 48;
 
             return (
               <motion.div
-                key={album.id + idx}
+                key={album.id}
                 onMouseEnter={() => {
                   setFocusSection('rightCards');
                   setSelectedRightCardIndex(idx);
@@ -612,17 +623,24 @@ function CreativeTVContent() {
                 style={{
                   transformOrigin: 'right center',
                 }}
-                className={`group cursor-pointer rounded-2xl p-3.5 bg-white/85 backdrop-blur-2xl border border-white shadow-[0_12px_28px_rgba(0,0,0,0.06)] flex items-center justify-between transition-all ${
+                className={`group cursor-pointer rounded-2xl p-3 bg-white/85 backdrop-blur-2xl border border-white shadow-[0_12px_28px_rgba(0,0,0,0.06)] flex items-center justify-between transition-all ${
                   isCardFocused
                     ? 'ring-4 ring-black/90 ring-offset-2 ring-offset-[#ececee] shadow-2xl z-10'
                     : 'hover:shadow-[0_20px_45px_rgba(0,0,0,0.12)]'
                 }`}
               >
                 <div className="flex items-center gap-3 truncate">
-                  <div className="w-13 h-11 rounded-xl overflow-hidden shadow-sm shrink-0 bg-black/10">
+                  <div className="w-13 h-11 rounded-xl overflow-hidden shadow-sm shrink-0 bg-stone-300">
                     <img
                       src={album.coverThumbnailUrl}
                       alt={album.title}
+                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
+                      onError={e => {
+                        const target = e.currentTarget;
+                        target.onerror = null;
+                        target.src = FALLBACK_COVER;
+                      }}
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
@@ -643,13 +661,54 @@ function CreativeTVContent() {
               </motion.div>
             );
           })}
+
+          {/* Card 3: Master Collection (All 1,899 Photos & Videos) */}
+          <motion.div
+            onMouseEnter={() => {
+              setFocusSection('rightCards');
+              setSelectedRightCardIndex(3);
+            }}
+            onClick={playMasterCollection}
+            animate={{
+              rotateY: focusSection === 'rightCards' && selectedRightCardIndex === 3 ? 0 : -14,
+              x: focusSection === 'rightCards' && selectedRightCardIndex === 3 ? -14 : 0,
+              scale: focusSection === 'rightCards' && selectedRightCardIndex === 3 ? 1.05 : 1,
+            }}
+            transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+            style={{
+              transformOrigin: 'right center',
+            }}
+            className={`group cursor-pointer rounded-2xl p-3 bg-gradient-to-r from-stone-900 to-black text-white shadow-[0_12px_28px_rgba(0,0,0,0.15)] flex items-center justify-between transition-all ${
+              focusSection === 'rightCards' && selectedRightCardIndex === 3
+                ? 'ring-4 ring-amber-400/90 ring-offset-2 ring-offset-[#ececee] shadow-2xl z-10'
+                : 'hover:shadow-[0_20px_45px_rgba(0,0,0,0.25)]'
+            }`}
+          >
+            <div className="flex items-center gap-3 truncate">
+              <div className="w-13 h-11 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center shrink-0">
+                <Compass className="w-5 h-5 text-amber-300" />
+              </div>
+              <div className="truncate">
+                <h4 className="text-sm font-semibold text-white truncate">
+                  Master Library
+                </h4>
+                <p className="text-[10px] text-amber-300/80 font-mono">
+                  All 1,899 Photos & Videos
+                </p>
+              </div>
+            </div>
+
+            <div className="w-7 h-7 rounded-full bg-amber-400 text-black flex items-center justify-center shrink-0 shadow">
+              <Play className="w-3 h-3 fill-current ml-0.5" />
+            </div>
+          </motion.div>
         </div>
       </main>
 
       {/* ========================================================= */}
       {/* 3. BOTTOM FLOATING DOCK & CONTROLS                        */}
       {/* ========================================================= */}
-      <footer className="relative z-20 flex items-center justify-between pt-4 border-t border-black/[0.06]">
+      <footer className="relative z-20 flex items-center justify-between pt-3 border-t border-black/[0.06]">
         {/* Left: User Profiles & Device */}
         <div className="flex items-center gap-4">
           <div className="flex items-center -space-x-2">

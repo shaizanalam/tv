@@ -37,6 +37,12 @@ const FEATURED_ALBUMS = [
     cover: 'https://lh3.googleusercontent.com/d/17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91=s1000',
     type: '292 Photos & Videos',
   },
+  {
+    title: 'Family Archive',
+    id: '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu',
+    cover: 'https://lh3.googleusercontent.com/d/1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC=s1000',
+    type: 'Old Memories & Media',
+  },
 ];
 
 export default function HomePage() {
@@ -137,7 +143,7 @@ export default function HomePage() {
             Featured Collections
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {FEATURED_ALBUMS.map(album => (
               <motion.div
                 key={album.id}
@@ -149,6 +155,8 @@ export default function HomePage() {
                 <img
                   src={album.cover}
                   alt={album.title}
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />

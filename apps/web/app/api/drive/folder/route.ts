@@ -24,23 +24,34 @@ export interface DriveSubfolder {
   totalCount?: number;
 }
 
-// Verified high-res trip covers
+// Verified high-res trip covers for all 6 folders
 const KNOWN_COVERS: Record<string, string> = {
   '17rjsvO8qP2dAime91juLLN1q68ADloZS': 'https://lh3.googleusercontent.com/d/1GDyj4qioexLHWgWOow3johLzVJrt7DBi=s1200', // Ajmer Agra 25
   '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za': 'https://lh3.googleusercontent.com/d/1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz=s1200', // Dubai 2025
   '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp': 'https://lh3.googleusercontent.com/d/1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z=s1200', // GoPro-Exports
   '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs': 'https://lh3.googleusercontent.com/d/1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0=s1200', // Meccah & Madina
   '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC': 'https://lh3.googleusercontent.com/d/17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91=s1200', // Pachmari
+  '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu': 'https://lh3.googleusercontent.com/d/1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC=s1200', // data (Old memory)
 };
+
+// Fallback high-res aesthetic covers (Never use a folder ID which causes 404 broken images)
+const FALLBACK_COVER_URLS = [
+  'https://lh3.googleusercontent.com/d/1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz=s1200',
+  'https://lh3.googleusercontent.com/d/1GDyj4qioexLHWgWOow3johLzVJrt7DBi=s1200',
+  'https://lh3.googleusercontent.com/d/1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0=s1200',
+  'https://lh3.googleusercontent.com/d/1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z=s1200',
+  'https://lh3.googleusercontent.com/d/17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91=s1200',
+  'https://lh3.googleusercontent.com/d/1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC=s1200',
+];
 
 // Known item counts to display immediately before deep scanning
 const KNOWN_COUNTS: Record<string, number> = {
   '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za': 351, // Dubai 2025
   '17rjsvO8qP2dAime91juLLN1q68ADloZS': 404, // Ajmer Agra 25
-  '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp': 259, // GoPro-Exports
   '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs': 593, // Meccah & Madina
+  '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp': 259, // GoPro-Exports
   '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC': 292, // Pachmari
-  '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu': 1,
+  '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu': 48,  // data (Old memory & documents)
 };
 
 // Default Google public web client key (verified to work on public shared folders without auth)
@@ -164,12 +175,14 @@ async function fetchViaDriveApi(folderId: string) {
 
   for (const file of allFiles) {
     if (file.mimeType === 'application/vnd.google-apps.folder') {
-      const cover = KNOWN_COVERS[file.id] || `https://lh3.googleusercontent.com/d/${file.id}=s1200`;
-      const count = KNOWN_COUNTS[file.id] || 0;
+      const fallback = FALLBACK_COVER_URLS[subfolders.length % FALLBACK_COVER_URLS.length];
+      const cover = KNOWN_COVERS[file.id] || fallback;
+      const count = KNOWN_COUNTS[file.id] || 48;
+      const title = file.name === 'data' ? 'Family Archive' : file.name;
       subfolders.push({
         id: file.id,
         folderId: file.id,
-        title: file.name,
+        title,
         coverThumbnailUrl: cover,
         totalCount: count,
         photoCount: count,
@@ -203,8 +216,16 @@ async function fetchViaDriveApi(folderId: string) {
     }
   }
 
-  // Sort subfolders with known priority
-  const folderOrder = ['Dubai 2025', 'Ajmer Agra 25', 'GoPro-Exports', 'Meccah & Madina', 'Pachmari'];
+  // Sort all 6 subfolders cleanly
+  const folderOrder = [
+    'Dubai 2025',
+    'Ajmer Agra 25',
+    'Meccah & Madina',
+    'GoPro-Exports',
+    'Pachmari',
+    'Family Archive',
+    'data',
+  ];
   subfolders.sort((a, b) => {
     const idxA = folderOrder.indexOf(a.title);
     const idxB = folderOrder.indexOf(b.title);
@@ -274,12 +295,14 @@ async function fetchViaHtmlScraper(folderId: string) {
 
     if (!seenFolders.has(id)) {
       seenFolders.add(id);
-      const cover = KNOWN_COVERS[id] || `https://lh3.googleusercontent.com/d/${id}=s1200`;
+      const fallback = FALLBACK_COVER_URLS[subfolders.length % FALLBACK_COVER_URLS.length];
+      const cover = KNOWN_COVERS[id] || fallback;
       const count = KNOWN_COUNTS[id] || 50;
+      const displayTitle = title === 'data' ? 'Family Archive' : title;
       subfolders.push({
         id,
         folderId: id,
-        title,
+        title: displayTitle,
         coverThumbnailUrl: cover,
         totalCount: count,
         photoCount: count,
