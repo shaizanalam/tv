@@ -146,6 +146,33 @@ export function SlideshowPlayer({
     return () => clearTimeout(hideTimer);
   }, [showHUD, currentIndex]);
 
+  // Screen Wake Lock API: Prevent TV from sleeping or dimming during slideshow
+  useEffect(() => {
+    let wakeLock: any = null;
+    const requestWakeLock = async () => {
+      if (typeof window !== 'undefined' && 'wakeLock' in navigator && document.visibilityState === 'visible') {
+        try {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+        } catch {}
+      }
+    };
+    requestWakeLock();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (wakeLock) {
+        wakeLock.release().catch(() => {});
+      }
+    };
+  }, []);
+
   // TV Remote & Keyboard Controls
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {

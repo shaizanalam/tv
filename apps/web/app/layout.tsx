@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: 'DriveFrame TV — Your Google Drive on Television',
   description:
     'Turn your Google Drive into a private, television-friendly digital photo gallery and cinematic ambient frame.',
+  manifest: '/manifest.json',
 };
 
 export const viewport: Viewport = {

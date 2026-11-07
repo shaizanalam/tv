@@ -1,0 +1,17 @@
+{
+  "name": "DriveFrame TV",
+  "short_name": "DriveFrame",
+  "description": "Ambient digital photo and video gallery frame for Google Drive",
+  "start_url": "/tv",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#ececee",
+  "theme_color": "#1c1c1e",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
