@@ -19,7 +19,6 @@ import {
   ChevronRight,
   Moon,
   Sun,
-  Volume2,
 } from 'lucide-react';
 import { SlideshowPlayer } from '@/components/slideshow/SlideshowPlayer';
 import { DriveItem } from '@/lib/types';
@@ -53,7 +52,7 @@ export interface AlbumFolder {
 
 const DEFAULT_MAIN_FOLDER = '1qCPS0mAatpr5Yil7t2Zc7hcO9Lbt2ufi';
 
-// The 5 official verified trip collections in the user's Google Drive with authentic highlight shots
+// 5 verified collections
 const VERIFIED_TRIPS: AlbumFolder[] = [
   {
     id: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
@@ -209,18 +208,15 @@ const VERIFIED_TRIPS: AlbumFolder[] = [
 
 const FALLBACK_COVER = '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv';
 
-type FocusSection = 'navTabs' | 'pills' | 'slats' | 'arch' | 'rightCards' | 'dock' | 'search';
+type FocusSection = 'slats' | 'arch' | 'rightCards' | 'dock' | 'search';
 
 /* ============================================================
-   Spring Physics Constants (Apple HIG §2.A)
+   Apple Motion Springs
    ============================================================ */
-const SPRING_SNAPPY = { type: 'spring' as const, stiffness: 400, damping: 30 }; // ζ≈1.0, T≈0.25s — controls, toggles
-const SPRING_SHEET  = { type: 'spring' as const, stiffness: 300, damping: 28 }; // ζ≈1.0, T≈0.35s — panels, sheets
-const SPRING_CARD   = { type: 'spring' as const, stiffness: 260, damping: 24 }; // ζ≈0.9, T≈0.4s  — card repositioning
+const SPRING_SNAPPY = { type: 'spring' as const, stiffness: 420, damping: 32 };
+const SPRING_SHEET  = { type: 'spring' as const, stiffness: 320, damping: 28 };
+const SPRING_CARD   = { type: 'spring' as const, stiffness: 280, damping: 26 };
 
-/* ============================================================
-   Dark Mode Hook
-   ============================================================ */
 function useDarkMode() {
   const [isDark, setIsDark] = useState(false);
 
@@ -246,9 +242,6 @@ function useDarkMode() {
   return { isDark, toggle };
 }
 
-/* ============================================================
-   Main TV Page Content
-   ============================================================ */
 function CreativeTVContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -257,10 +250,7 @@ function CreativeTVContent() {
   const [albums, setAlbums] = useState<AlbumFolder[]>(VERIFIED_TRIPS);
   const [selectedAlbumIndex, setSelectedAlbumIndex] = useState(0);
   const [expandedSlatIndex, setExpandedSlatIndex] = useState(0);
-  const [selectedRightCardIndex, setSelectedRightCardIndex] = useState(0);
-  const [selectedPillIndex, setSelectedPillIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState<'art' | 'trips' | 'favorites' | 'ambient'>('art');
-  const [dockFocusIndex, setDockFocusIndex] = useState(5); // default on Play button
+  const [dockFocusIndex, setDockFocusIndex] = useState(5);
   const [inSlideshow, setInSlideshow] = useState(false);
   const [activePhotos, setActivePhotos] = useState<DriveItem[]>([]);
   const [timeStr, setTimeStr] = useState('');
@@ -270,13 +260,10 @@ function CreativeTVContent() {
   const [loadingAlbumTitle, setLoadingAlbumTitle] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
 
-  // Client-side Memory Cache for sub-millisecond album switches
   const albumPhotosCache = useRef<Map<string, DriveItem[]>>(new Map());
-
-  // TV Remote Focus Zone
   const [focusSection, setFocusSection] = useState<FocusSection>('slats');
 
-  // Clock & Date updater
+  // Clock
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -284,7 +271,7 @@ function CreativeTVContent() {
         now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
       );
       setDateStr(
-        now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })
+        now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
       );
     };
     updateTime();
@@ -292,14 +279,13 @@ function CreativeTVContent() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch albums & trigger background preloading
+  // Fetch albums
   const fetchAlbums = useCallback(async (targetId: string) => {
     setIsLoading(true);
     try {
       const res = await fetch(`/api/drive/folder?folder=${encodeURIComponent(targetId)}`);
       const data = await res.json();
       if (data.subfolders && data.subfolders.length > 0) {
-        // Filter and merge verified trips while keeping our curated high-res highlight shots
         const matched = VERIFIED_TRIPS.map(trip => {
           const found = data.subfolders.find((s: AlbumFolder) => s.folderId === trip.folderId);
           return found
@@ -314,24 +300,17 @@ function CreativeTVContent() {
         });
         setAlbums(matched);
 
-        // Preload photos for instant playback
         matched.forEach((sub: AlbumFolder) => {
           fetch(`/api/drive/folder?folder=${encodeURIComponent(sub.folderId)}`)
             .then(r => r.json())
             .then(subData => {
               if (subData.items && subData.items.length > 0) {
                 albumPhotosCache.current.set(sub.folderId, subData.items);
-                if (subData.items[0]?.previewUrl) {
-                  const img = new Image();
-                  img.referrerPolicy = 'no-referrer';
-                  img.src = subData.items[0].previewUrl;
-                }
               }
             })
             .catch(() => {});
         });
       } else if (data.items && data.items.length > 0) {
-        // Direct trip folder opened (e.g. Dubai, Pachmari, etc.)
         setActivePhotos(data.items);
         setInSlideshow(true);
       }
@@ -348,7 +327,6 @@ function CreativeTVContent() {
     fetchAlbums(target);
   }, [searchParams, fetchAlbums]);
 
-  // Open Album (Instant if pre-cached!)
   const openAlbum = async (folderId: string, title?: string) => {
     setLoadingAlbumTitle(title || 'Album');
     const cachedItems = albumPhotosCache.current.get(folderId);
@@ -375,9 +353,8 @@ function CreativeTVContent() {
     }
   };
 
-  // Play All 1,899 Photos & Videos across all 5 trip collections
   const playMasterCollection = async () => {
-    setLoadingAlbumTitle('All 5 Trips (1,899 Items)');
+    setLoadingAlbumTitle('All Trips (1,899 Items)');
     let combined: DriveItem[] = [];
     for (const [, items] of albumPhotosCache.current.entries()) {
       combined = combined.concat(items);
@@ -395,24 +372,18 @@ function CreativeTVContent() {
     }
   };
 
-  // Active highlighted trip (synced across pills, slats, arch, and right cards)
-  const activeFeaturedTrip = albums[selectedRightCardIndex] || albums[0];
+  const activeFeaturedTrip = albums[selectedAlbumIndex] || albums[0];
   const activeHighlights = activeFeaturedTrip.highlightShots || VERIFIED_TRIPS[0].highlightShots;
 
-  // -------------------------------------------------------------
-  // Full 2D Spatial TV Remote Navigation Controls
-  // -------------------------------------------------------------
+  // TV Remote controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (inSlideshow) return;
 
       switch (e.key) {
-        // --- RIGHT ---
         case 'ArrowRight':
           e.preventDefault();
-          if (focusSection === 'pills') {
-            setSelectedPillIndex(prev => Math.min(albums.length, prev + 1));
-          } else if (focusSection === 'slats') {
+          if (focusSection === 'slats') {
             if (expandedSlatIndex < 2) {
               setExpandedSlatIndex(prev => prev + 1);
             } else {
@@ -425,12 +396,9 @@ function CreativeTVContent() {
           }
           break;
 
-        // --- LEFT ---
         case 'ArrowLeft':
           e.preventDefault();
-          if (focusSection === 'pills') {
-            setSelectedPillIndex(prev => Math.max(0, prev - 1));
-          } else if (focusSection === 'rightCards') {
+          if (focusSection === 'rightCards') {
             setFocusSection('arch');
           } else if (focusSection === 'arch') {
             setFocusSection('slats');
@@ -444,18 +412,13 @@ function CreativeTVContent() {
           }
           break;
 
-        // --- DOWN ---
         case 'ArrowDown':
           e.preventDefault();
-          if (focusSection === 'navTabs') {
-            setFocusSection('pills');
-          } else if (focusSection === 'pills' || focusSection === 'search') {
+          if (focusSection === 'search') {
             setFocusSection('slats');
           } else if (focusSection === 'rightCards') {
-            if (selectedRightCardIndex < albums.length - 1) {
-              const nextIdx = selectedRightCardIndex + 1;
-              setSelectedRightCardIndex(nextIdx);
-              setSelectedAlbumIndex(nextIdx);
+            if (selectedAlbumIndex < albums.length - 1) {
+              setSelectedAlbumIndex(prev => prev + 1);
             } else {
               setFocusSection('dock');
               setDockFocusIndex(5);
@@ -466,44 +429,23 @@ function CreativeTVContent() {
           }
           break;
 
-        // --- UP ---
         case 'ArrowUp':
           e.preventDefault();
           if (focusSection === 'dock') {
             setFocusSection('slats');
           } else if (focusSection === 'rightCards') {
-            if (selectedRightCardIndex > 0) {
-              const prevIdx = selectedRightCardIndex - 1;
-              setSelectedRightCardIndex(prevIdx);
-              setSelectedAlbumIndex(prevIdx);
-            } else {
-              setFocusSection('pills');
+            if (selectedAlbumIndex > 0) {
+              setSelectedAlbumIndex(prev => prev - 1);
             }
-          } else if (focusSection === 'slats' || focusSection === 'arch') {
-            setFocusSection('pills');
-          } else if (focusSection === 'pills') {
-            setFocusSection('navTabs');
           }
           break;
 
-        // --- ENTER / OK ---
         case 'Enter':
           e.preventDefault();
-          if (focusSection === 'pills') {
-            if (selectedPillIndex === albums.length) {
-              playMasterCollection();
-            } else {
-              const alb = albums[selectedPillIndex];
-              setSelectedAlbumIndex(selectedPillIndex);
-              setSelectedRightCardIndex(selectedPillIndex);
-              openAlbum(alb.folderId, alb.title);
-            }
-          } else if (focusSection === 'slats') {
-            openAlbum(activeFeaturedTrip.folderId, activeFeaturedTrip.title);
-          } else if (focusSection === 'arch') {
+          if (focusSection === 'slats' || focusSection === 'arch') {
             openAlbum(activeFeaturedTrip.folderId, activeFeaturedTrip.title);
           } else if (focusSection === 'rightCards') {
-            const alb = albums[selectedRightCardIndex];
+            const alb = albums[selectedAlbumIndex];
             openAlbum(alb.folderId, alb.title);
           } else if (focusSection === 'dock') {
             if (dockFocusIndex === 0) router.push('/tv/pair');
@@ -515,20 +457,16 @@ function CreativeTVContent() {
             if (dockFocusIndex === 3) router.push('/tv/pair');
             if (dockFocusIndex === 4) {
               setSelectedAlbumIndex(prev => (prev - 1 + albums.length) % albums.length);
-              setSelectedRightCardIndex(prev => (prev - 1 + albums.length) % albums.length);
             }
             if (dockFocusIndex === 5) {
-              const alb = albums[selectedRightCardIndex] || albums[0];
-              openAlbum(alb.folderId, alb.title);
+              openAlbum(activeFeaturedTrip.folderId, activeFeaturedTrip.title);
             }
             if (dockFocusIndex === 6) {
               setSelectedAlbumIndex(prev => (prev + 1) % albums.length);
-              setSelectedRightCardIndex(prev => (prev + 1) % albums.length);
             }
           }
           break;
 
-        // --- BACK / ESCAPE (Samsung Tizen 10009 / LG WebOS 461) ---
         case 'Escape':
         case 'Backspace':
           e.preventDefault();
@@ -548,8 +486,7 @@ function CreativeTVContent() {
   }, [
     focusSection,
     expandedSlatIndex,
-    selectedRightCardIndex,
-    selectedPillIndex,
+    selectedAlbumIndex,
     dockFocusIndex,
     albums,
     activeFeaturedTrip,
@@ -568,25 +505,18 @@ function CreativeTVContent() {
     );
   }
 
-  const tabs = [
-    { key: 'art' as const, label: 'Art Mode' },
-    { key: 'trips' as const, label: 'Trips' },
-    { key: 'favorites' as const, label: 'Favorites' },
-    { key: 'ambient' as const, label: 'Ambient' },
-  ];
-
   return (
     <div
-      className="relative min-h-[100dvh] w-full select-none flex flex-col justify-between p-5 lg:p-7 xl:p-8 overflow-hidden font-sans transition-colors duration-500"
+      className="relative h-[100dvh] w-full select-none flex flex-col justify-between p-6 lg:p-8 xl:p-10 overflow-hidden font-sans transition-colors duration-500"
       style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
     >
-      {/* Subtle ambient gradient background */}
+      {/* Subtle ambient lighting */}
       <div
         className="absolute inset-0 pointer-events-none transition-opacity duration-700"
         style={{
           background: isDark
-            ? 'radial-gradient(ellipse at 30% 20%, rgba(255,160,48,0.04) 0%, transparent 60%), radial-gradient(ellipse at 80% 80%, rgba(28,28,30,0.5) 0%, transparent 50%)'
-            : 'radial-gradient(ellipse at 30% 20%, rgba(232,134,12,0.04) 0%, transparent 60%), linear-gradient(135deg, #f8f8fa 0%, #ececee 50%, #e2e2e7 100%)',
+            ? 'radial-gradient(circle at 50% 30%, rgba(240,160,48,0.03) 0%, transparent 70%)'
+            : 'radial-gradient(circle at 50% 30%, rgba(232,134,12,0.03) 0%, transparent 70%)',
         }}
       />
 
@@ -597,25 +527,23 @@ function CreativeTVContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
             className="absolute inset-0 z-50 flex flex-col items-center justify-center"
             style={{ background: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.25)', backdropFilter: 'blur(16px)' }}
           >
             <motion.div
-              initial={{ scale: 0.92, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.92, opacity: 0 }}
+              exit={{ scale: 0.95, opacity: 0 }}
               transition={SPRING_SHEET}
-              className="glass p-8 rounded-3xl flex flex-col items-center gap-4"
-              style={{ minWidth: 220 }}
+              className="glass p-7 rounded-3xl flex flex-col items-center gap-3.5"
             >
-              <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
+              <Loader2 className="w-7 h-7 animate-spin" style={{ color: 'var(--accent)' }} />
               <div className="text-center">
-                <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                   Opening {loadingAlbumTitle || 'Collection'}
                 </h3>
-                <p className="text-xs mt-1 font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                  Streaming from Google Drive…
+                <p className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                  Loading photos…
                 </p>
               </div>
             </motion.div>
@@ -624,185 +552,60 @@ function CreativeTVContent() {
       </AnimatePresence>
 
       {/* ========================================================= */}
-      {/* 1. TOP NAVIGATION HEADER                                  */}
+      {/* 1. CLEAN MINIMAL HEADER                                   */}
       {/* ========================================================= */}
-      <header className="relative z-20 flex flex-col gap-3 pb-1">
-        <div className="flex items-center justify-between">
-          {/* Tab Navigation */}
-          <nav className="flex items-center gap-1 p-1 rounded-xl" role="tablist">
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setActiveTab(tab.key)}
-                  className="relative px-4 py-1.5 text-sm tracking-tight cursor-pointer transition-all duration-200"
-                  style={{
-                    color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                    fontWeight: isActive ? 700 : 400,
-                  }}
-                >
-                  {tab.label}
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeTab"
-                      className="absolute inset-0 rounded-lg -z-10"
-                      style={{ background: 'var(--accent-soft)' }}
-                      transition={SPRING_SNAPPY}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Right: Theme toggle + Search */}
-          <div className="flex items-center gap-3">
-            {/* Dark/Light Mode Toggle */}
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors"
-              style={{
-                background: 'var(--card-bg)',
-                border: '1px solid var(--card-border)',
-              }}
-              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={isDark ? 'moon' : 'sun'}
-                  initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
-                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                  exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
-                  transition={SPRING_SNAPPY}
-                >
-                  {isDark ? (
-                    <Moon className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                  ) : (
-                    <Sun className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </motion.button>
-
-            {/* Search Input */}
-            <form
-              onSubmit={e => {
-                e.preventDefault();
-                if (folderInput.trim()) {
-                  fetchAlbums(folderInput.trim());
-                }
-              }}
-              className="glass flex items-center gap-2 rounded-full px-4 py-2 transition-all"
-              style={{
-                boxShadow: searchFocused ? '0 0 0 2px var(--accent)' : 'var(--glass-shadow)',
-              }}
-            >
-              <Search className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-              <input
-                type="text"
-                value={folderInput}
-                onChange={e => setFolderInput(e.target.value)}
-                onFocus={() => { setSearchFocused(true); setFocusSection('search'); }}
-                onBlur={() => setSearchFocused(false)}
-                placeholder="Paste Drive folder link…"
-                className="bg-transparent border-none text-xs focus:outline-none w-36 md:w-48"
-                style={{ color: 'var(--text-primary)' }}
-              />
-            </form>
-          </div>
+      <header className="relative z-20 flex items-center justify-between pb-2">
+        {/* Brand & Collection Count */}
+        <div className="flex items-center gap-3">
+          <span className="text-base font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+            DriveFrame
+          </span>
+          <span className="text-xs px-2.5 py-0.5 rounded-full font-mono" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+            5 Trips · 1,899 Items
+          </span>
         </div>
 
-        {/* ========================================================= */}
-        {/* ALL 5 TRIPS PILL STRIP                                    */}
-        {/* ========================================================= */}
-        <div className="flex items-center gap-2 overflow-x-auto py-0.5 no-scrollbar">
-          <span
-            className="text-[10px] font-medium uppercase tracking-widest mr-1 shrink-0"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            Collections
-          </span>
-
-          {albums.map((alb, idx) => {
-            const isPillFocused = focusSection === 'pills' && selectedPillIndex === idx;
-            const isSelected = selectedRightCardIndex === idx;
-
-            return (
-              <motion.button
-                key={alb.id}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  setSelectedRightCardIndex(idx);
-                  setSelectedAlbumIndex(idx);
-                  openAlbum(alb.folderId, alb.title);
-                }}
-                onMouseEnter={() => {
-                  setSelectedRightCardIndex(idx);
-                  setSelectedAlbumIndex(idx);
-                }}
-                className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all shrink-0"
-                style={{
-                  background: isPillFocused
-                    ? 'var(--text-primary)'
-                    : isSelected
-                    ? 'var(--card-bg)'
-                    : 'transparent',
-                  color: isPillFocused
-                    ? 'var(--bg-primary)'
-                    : isSelected
-                    ? 'var(--text-primary)'
-                    : 'var(--text-secondary)',
-                  border: `1px solid ${isPillFocused ? 'var(--text-primary)' : isSelected ? 'var(--card-border)' : 'var(--separator)'}`,
-                  boxShadow: isPillFocused
-                    ? '0 4px 16px rgba(0,0,0,0.15)'
-                    : isSelected
-                    ? 'var(--card-shadow)'
-                    : 'none',
-                  fontWeight: isSelected ? 600 : 500,
-                }}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: isSelected ? 'var(--accent)' : 'var(--text-tertiary)' }}
-                />
-                <span>{alb.title}</span>
-                <span className="text-[10px] font-mono" style={{ opacity: 0.5 }}>
-                  {alb.totalCount}
-                </span>
-              </motion.button>
-            );
-          })}
-
-          {/* Master Collection Pill: Play All 5 Trips (1,899 Items) */}
+        {/* Right: Theme Toggle & Search */}
+        <div className="flex items-center gap-2.5">
           <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={playMasterCollection}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all shrink-0"
-            style={{
-              background: focusSection === 'pills' && selectedPillIndex === albums.length
-                ? 'var(--accent)'
-                : 'var(--text-primary)',
-              color: 'var(--bg-primary)',
-            }}
+            whileTap={{ scale: 0.92 }}
+            onClick={toggleTheme}
+            className="w-8 h-8 rounded-full glass flex items-center justify-center cursor-pointer"
+            title={isDark ? 'Light Mode' : 'Dark Mode'}
           >
-            <Compass className="w-3.5 h-3.5" style={{ opacity: 0.8 }} />
-            <span>Play All · 1,899</span>
+            {isDark ? (
+              <Moon className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+            ) : (
+              <Sun className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+            )}
           </motion.button>
+
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              if (folderInput.trim()) fetchAlbums(folderInput.trim());
+            }}
+            className="glass flex items-center gap-2 rounded-full px-3.5 py-1.5"
+          >
+            <Search className="w-3 h-3" style={{ color: 'var(--text-tertiary)' }} />
+            <input
+              type="text"
+              value={folderInput}
+              onChange={e => setFolderInput(e.target.value)}
+              placeholder="Paste folder link…"
+              className="bg-transparent border-none text-xs focus:outline-none w-32 md:w-44"
+              style={{ color: 'var(--text-primary)' }}
+            />
+          </form>
         </div>
       </header>
 
       {/* ========================================================= */}
-      {/* 2. MAIN 3-PANEL SHOWCASE                                  */}
+      {/* 2. MAIN 3-PANEL SHOWCASE (Roomy, Airy Layout)              */}
       {/* ========================================================= */}
-      <main className="relative z-10 flex-1 grid grid-cols-12 gap-4 lg:gap-6 items-center my-1">
-        {/* ------------------------------------------------------- */}
-        {/* LEFT: 3 DYNAMIC HIGHLIGHT SHOTS FOR THE SELECTED ALBUM  */}
-        {/* ------------------------------------------------------- */}
-        <div className="col-span-5 h-[62vh] flex gap-2.5">
+      <main className="relative z-10 flex-1 grid grid-cols-12 gap-6 items-center my-auto">
+        {/* LEFT: 3 Highlight Slats */}
+        <div className="col-span-6 h-[66vh] flex gap-3">
           {activeHighlights.map((shot, idx) => {
             const isCenterSlat = idx === 0;
             const isSlatFocused =
@@ -817,23 +620,20 @@ function CreativeTVContent() {
                 }}
                 onClick={() => openAlbum(activeFeaturedTrip.folderId, activeFeaturedTrip.title)}
                 animate={{
-                  flexGrow: isSlatFocused ? 2.8 : 1,
-                  scale: isSlatFocused ? 1.0 : 0.98,
+                  flexGrow: isSlatFocused ? 2.5 : 1,
+                  scale: isSlatFocused ? 1.0 : 0.985,
                 }}
                 transition={SPRING_CARD}
-                className="relative h-full basis-0 rounded-2xl overflow-hidden cursor-pointer group"
+                className="relative h-full basis-0 rounded-3xl overflow-hidden cursor-pointer group"
                 style={{
                   boxShadow: isSlatFocused
-                    ? '0 20px 50px rgba(0,0,0,0.15)'
-                    : '0 8px 24px rgba(0,0,0,0.06)',
+                    ? '0 24px 60px rgba(0,0,0,0.18)'
+                    : '0 4px 16px rgba(0,0,0,0.04)',
                   outline: isSlatFocused ? '3px solid var(--focus-ring)' : 'none',
                   outlineOffset: '3px',
                 }}
               >
-                {/* Skeleton placeholder while image loads */}
                 <div className="absolute inset-0 skeleton" />
-
-                {/* Background Cover Photo with Same-Origin Proxy */}
                 <img
                   src={shot.url}
                   alt={shot.title}
@@ -844,107 +644,63 @@ function CreativeTVContent() {
                     target.onerror = null;
                     target.src = FALLBACK_COVER;
                   }}
-                  className="relative w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                  className="relative w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
                   loading="eager"
                 />
-
-                {/* Scrim Overlay */}
                 <div className="absolute inset-0" style={{ background: 'var(--scrim)' }} />
 
-                {/* Slat Content Info */}
-                <div className="absolute bottom-4 left-4 right-4 text-white">
+                <div className="absolute bottom-5 left-5 right-5 text-white">
                   <div
-                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-wider font-semibold mb-1.5"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-wider font-semibold mb-2"
                     style={{
-                      background: 'rgba(0,0,0,0.4)',
+                      background: 'rgba(0,0,0,0.45)',
                       backdropFilter: 'blur(12px)',
                       color: 'var(--accent)',
-                      border: '1px solid rgba(255,255,255,0.12)',
                     }}
                   >
                     {shot.tag}
                   </div>
-
-                  <h3 className="text-lg lg:text-xl font-bold tracking-tight text-white drop-shadow-sm truncate">
+                  <h3 className="text-xl font-bold tracking-tight text-white drop-shadow truncate">
                     {shot.title}
                   </h3>
-                  <p className="text-[11px] text-white/65 font-light truncate">
+                  <p className="text-xs text-white/70 font-light truncate mt-0.5">
                     {shot.subtitle}
                   </p>
-
-                  <AnimatePresence>
-                    {isSlatFocused && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 4 }}
-                        transition={SPRING_SNAPPY}
-                        className="mt-3 flex items-center justify-between text-xs text-white/85"
-                      >
-                        <div className="flex items-center gap-1.5 font-light">
-                          <ImageIcon className="w-3 h-3" style={{ color: 'var(--accent)' }} />
-                          <span>{activeFeaturedTrip.photoCount} photos</span>
-                          {activeFeaturedTrip.videoCount > 0 && (
-                            <>
-                              <span className="text-white/30">·</span>
-                              <Film className="w-3 h-3" style={{ color: 'var(--accent)', opacity: 0.7 }} />
-                              <span>{activeFeaturedTrip.videoCount} videos</span>
-                            </>
-                          )}
-                        </div>
-                        <div
-                          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium"
-                          style={{
-                            background: 'rgba(255,255,255,0.18)',
-                            backdropFilter: 'blur(12px)',
-                            border: '1px solid rgba(255,255,255,0.15)',
-                          }}
-                        >
-                          <Play className="w-2.5 h-2.5 fill-white" />
-                          <span>Play</span>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </div>
               </motion.div>
             );
           })}
         </div>
 
-        {/* ------------------------------------------------------- */}
-        {/* CENTER: AMBIENT CLOCK & ORB WIDGET (Arched Glass)       */}
-        {/* ------------------------------------------------------- */}
-        <div className="col-span-4 h-[64vh] flex justify-center">
+        {/* CENTER: Arched Ambient Widget */}
+        <div className="col-span-3 h-[66vh] flex justify-center">
           <motion.div
             initial={{ scale: 0.96, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={SPRING_SHEET}
-            className="relative w-full max-w-[320px] h-full rounded-t-[180px] rounded-b-[36px] glass flex flex-col justify-between items-center text-center transition-all duration-300"
+            className="relative w-full max-w-[280px] h-full rounded-t-[140px] rounded-b-[32px] glass flex flex-col justify-between items-center text-center p-6"
             style={{
-              padding: '1.75rem',
               outline: focusSection === 'arch' ? '3px solid var(--focus-ring)' : 'none',
               outlineOffset: '3px',
             }}
           >
-            {/* Top: Breathing Celestial Orb */}
-            <div className="mt-6 flex flex-col items-center">
+            {/* Ambient Orb */}
+            <div className="mt-4 flex flex-col items-center">
               <div
-                className="relative w-20 h-20 rounded-full flex items-center justify-center cursor-pointer animate-breathe"
+                className="relative w-18 h-18 rounded-full flex items-center justify-center cursor-pointer animate-breathe"
                 style={{
                   background: `linear-gradient(135deg, var(--orb-from), var(--orb-via), var(--orb-to))`,
                 }}
               >
-                {/* Specular Light Refraction Ring */}
-                <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-transparent via-white/25 to-white/60 blur-[0.5px]" />
-                <Sparkles className="w-7 h-7 text-white/90 drop-shadow" />
+                <div className="absolute inset-1.5 rounded-full bg-gradient-to-tr from-transparent via-white/25 to-white/60 blur-[0.5px]" />
+                <Sparkles className="w-6 h-6 text-white/95 drop-shadow" />
               </div>
             </div>
 
-            {/* Middle: Time & Selected Trip Info */}
-            <div className="space-y-1.5 my-auto">
+            {/* Time & Active Collection */}
+            <div className="space-y-1 my-auto">
               <div
-                className="text-5xl font-extralight tracking-tight"
+                className="text-4xl font-light tracking-tight font-sans"
                 style={{ color: 'var(--text-primary)' }}
               >
                 {timeStr.split(' ')[0] || '12:48'}
@@ -952,86 +708,60 @@ function CreativeTVContent() {
               <p className="text-[11px] font-medium tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
                 {dateStr || 'Saturday, Nov 7'}
               </p>
-              <div className="pt-3">
-                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              <div className="pt-2">
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {activeFeaturedTrip.title}
                 </p>
-                <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                  {activeFeaturedTrip.photoCount} Photos · {activeFeaturedTrip.videoCount} Videos
+                <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                  {activeFeaturedTrip.totalCount} items
                 </p>
               </div>
             </div>
 
-            {/* Bottom: Play Button */}
+            {/* Play Button */}
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => openAlbum(activeFeaturedTrip.folderId, activeFeaturedTrip.title)}
-              className="w-full py-3 px-6 rounded-full font-medium text-[13px] tracking-wide flex items-center justify-center gap-2 cursor-pointer transition-all"
+              className="w-full py-2.5 px-4 rounded-full font-medium text-xs tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-sm"
               style={{
                 background: 'var(--text-primary)',
                 color: 'var(--bg-primary)',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
               }}
             >
-              {isLoading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Play className="w-3.5 h-3.5 fill-current" />
-              )}
-              <span>Play {activeFeaturedTrip.title}</span>
+              <Play className="w-3 h-3 fill-current" />
+              <span>Play Album</span>
             </motion.button>
           </motion.div>
         </div>
 
-        {/* ------------------------------------------------------- */}
-        {/* RIGHT: ALL 5 TRIP ALBUMS                                */}
-        {/* ------------------------------------------------------- */}
-        <div className="col-span-3 h-[62vh] flex flex-col justify-center py-1 gap-2.5 overflow-y-auto no-scrollbar [perspective:1200px]">
+        {/* RIGHT: Floating Cards for the 5 Trips */}
+        <div className="col-span-3 h-[66vh] flex flex-col justify-center gap-2.5 py-1">
           {albums.map((album, idx) => {
-            const isCardFocused = focusSection === 'rightCards' && selectedRightCardIndex === idx;
-            const isFeatured = selectedRightCardIndex === idx;
+            const isSelected = selectedAlbumIndex === idx;
 
             return (
               <motion.div
                 key={album.id}
                 onMouseEnter={() => {
                   setFocusSection('rightCards');
-                  setSelectedRightCardIndex(idx);
                   setSelectedAlbumIndex(idx);
                 }}
-                onClick={() => openAlbum(album.folderId, album.title)}
-                animate={{
-                  rotateY: isCardFocused ? 0 : -8,
-                  x: isCardFocused ? -8 : 0,
-                  scale: isCardFocused ? 1.03 : isFeatured ? 1.01 : 1,
+                onClick={() => {
+                  setSelectedAlbumIndex(idx);
+                  openAlbum(album.folderId, album.title);
                 }}
-                transition={SPRING_CARD}
-                className="group cursor-pointer rounded-2xl p-2.5 flex items-center justify-between transition-all card-surface"
+                whileHover={{ x: -4 }}
+                transition={SPRING_SNAPPY}
+                className="group cursor-pointer rounded-2xl p-2 flex items-center justify-between transition-all"
                 style={{
-                  transformOrigin: 'right center',
-                  ...(isCardFocused
-                    ? {
-                        outline: '3px solid var(--focus-ring)',
-                        outlineOffset: '2px',
-                        boxShadow: 'var(--card-shadow-hover)',
-                        background: 'var(--card-bg)',
-                        border: '1px solid var(--card-border)',
-                      }
-                    : isFeatured
-                    ? {
-                        boxShadow: 'var(--card-shadow-hover)',
-                        outline: '2px solid var(--accent)',
-                        outlineOffset: '1px',
-                        background: 'var(--card-bg)',
-                        border: '1px solid var(--card-border)',
-                      }
-                    : {}),
+                  background: isSelected ? 'var(--card-bg)' : 'transparent',
+                  border: isSelected ? '1px solid var(--accent)' : '1px solid transparent',
+                  boxShadow: isSelected ? 'var(--card-shadow-hover)' : 'none',
                 }}
               >
                 <div className="flex items-center gap-3 truncate">
-                  {/* Album Thumbnail */}
-                  <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 skeleton">
+                  <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 skeleton">
                     <img
                       src={album.coverThumbnailUrl}
                       alt={album.title}
@@ -1046,31 +776,28 @@ function CreativeTVContent() {
                       loading="lazy"
                     />
                   </div>
-                  {/* Album Info */}
                   <div className="truncate">
                     <h4
-                      className="text-[13px] font-semibold truncate"
+                      className="text-xs font-semibold truncate"
                       style={{ color: 'var(--text-primary)' }}
                     >
                       {album.title}
                     </h4>
                     <p className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                      {album.photoCount} photos · {album.videoCount} videos
+                      {album.totalCount} items
                     </p>
                   </div>
                 </div>
 
-                {/* Play Chevron */}
-                <motion.div
-                  whileHover={{ scale: 1.15 }}
-                  className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all"
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all"
                   style={{
-                    background: isFeatured ? 'var(--accent)' : 'var(--accent-soft)',
-                    color: isFeatured ? 'white' : 'var(--accent-text)',
+                    background: isSelected ? 'var(--accent)' : 'transparent',
+                    color: isSelected ? 'white' : 'var(--text-tertiary)',
                   }}
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
-                </motion.div>
+                </div>
               </motion.div>
             );
           })}
@@ -1078,144 +805,65 @@ function CreativeTVContent() {
       </main>
 
       {/* ========================================================= */}
-      {/* 3. BOTTOM FLOATING DOCK & CONTROLS                        */}
+      {/* 3. MINIMAL BOTTOM BAR                                     */}
       {/* ========================================================= */}
       <footer
-        className="relative z-20 flex items-center justify-between pt-3"
+        className="relative z-20 flex items-center justify-between pt-2"
         style={{ borderTop: '1px solid var(--separator)' }}
       >
-        {/* Left: User Profiles & Device */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center -space-x-2">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm"
-              style={{ background: 'var(--accent)', color: 'white', border: '2px solid var(--bg-primary)' }}
-            >
-              👨‍👩‍👧
-            </div>
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm"
-              style={{ background: '#4AADE8', color: 'white', border: '2px solid var(--bg-primary)' }}
-            >
-              🏔️
-            </div>
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => router.push('/tv/pair')}
-              className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-colors"
-              style={{
-                background: 'var(--accent-soft)',
-                color: 'var(--text-secondary)',
-                border: '2px solid var(--bg-primary)',
-                ...(focusSection === 'dock' && dockFocusIndex === 0 ? { outline: '2px solid var(--focus-ring)' } : {}),
-              }}
-              title="Pair New Device"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </motion.button>
-          </div>
-          <span className="text-xs font-medium tracking-wide" style={{ color: 'var(--text-secondary)' }}>
-            Living Room TV
-          </span>
-        </div>
+        <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
+          Living Room TV
+        </span>
 
-        {/* Center: Frosted Glass Utility Pills */}
-        <div className="glass flex items-center gap-1 rounded-full p-1.5">
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={playMasterCollection}
-            className="p-2.5 rounded-full cursor-pointer transition-colors"
-            style={{
-              color: focusSection === 'dock' && dockFocusIndex === 1 ? 'var(--accent)' : 'var(--text-secondary)',
-              background: focusSection === 'dock' && dockFocusIndex === 1 ? 'var(--accent-soft)' : 'transparent',
-            }}
-            title="Play All 5 Trips"
-          >
-            <Compass className="w-4 h-4" />
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => {
-              const shuffled = [...albums].sort(() => Math.random() - 0.5);
-              setAlbums(shuffled);
-            }}
-            className="p-2.5 rounded-full cursor-pointer transition-colors"
-            style={{
-              color: focusSection === 'dock' && dockFocusIndex === 2 ? 'var(--accent)' : 'var(--text-secondary)',
-              background: focusSection === 'dock' && dockFocusIndex === 2 ? 'var(--accent-soft)' : 'transparent',
-            }}
-            title="Shuffle Collections"
-          >
-            <Shuffle className="w-4 h-4" />
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => router.push('/tv/pair')}
-            className="p-2.5 rounded-full cursor-pointer transition-colors"
-            style={{
-              color: focusSection === 'dock' && dockFocusIndex === 3 ? 'var(--accent)' : 'var(--text-secondary)',
-              background: focusSection === 'dock' && dockFocusIndex === 3 ? 'var(--accent-soft)' : 'transparent',
-            }}
-            title="Settings"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-          </motion.button>
-        </div>
-
-        {/* Right-Center: Playback Controls */}
+        {/* Controls */}
         <div className="flex items-center gap-2">
           <motion.button
-            whileTap={{ scale: 0.85 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => {
               setSelectedAlbumIndex(prev => (prev - 1 + albums.length) % albums.length);
-              setSelectedRightCardIndex(prev => (prev - 1 + albums.length) % albums.length);
             }}
-            className="p-2 rounded-full cursor-pointer"
-            style={{
-              color: focusSection === 'dock' && dockFocusIndex === 4 ? 'var(--text-primary)' : 'var(--text-tertiary)',
-              ...(focusSection === 'dock' && dockFocusIndex === 4 ? { outline: '2px solid var(--focus-ring)' } : {}),
-            }}
+            className="p-1.5 rounded-full cursor-pointer"
+            style={{ color: 'var(--text-tertiary)' }}
           >
             <SkipBack className="w-4 h-4" />
           </motion.button>
 
           <motion.button
-            whileTap={{ scale: 0.88 }}
-            onClick={() => {
-              if (albums.length > 0) {
-                const alb = albums[selectedRightCardIndex] || albums[0];
-                openAlbum(alb.folderId, alb.title);
-              }
-            }}
-            className="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all"
+            whileTap={{ scale: 0.9 }}
+            onClick={() => openAlbum(activeFeaturedTrip.folderId, activeFeaturedTrip.title)}
+            className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer shadow-sm"
             style={{
               background: 'var(--text-primary)',
               color: 'var(--bg-primary)',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
-              ...(focusSection === 'dock' && dockFocusIndex === 5 ? { outline: '3px solid var(--accent)', outlineOffset: '2px' } : {}),
             }}
           >
-            <Play className="w-4 h-4 fill-current ml-0.5" />
+            <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
           </motion.button>
 
           <motion.button
-            whileTap={{ scale: 0.85 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => {
               setSelectedAlbumIndex(prev => (prev + 1) % albums.length);
-              setSelectedRightCardIndex(prev => (prev + 1) % albums.length);
             }}
-            className="p-2 rounded-full cursor-pointer"
-            style={{
-              color: focusSection === 'dock' && dockFocusIndex === 6 ? 'var(--text-primary)' : 'var(--text-tertiary)',
-              ...(focusSection === 'dock' && dockFocusIndex === 6 ? { outline: '2px solid var(--focus-ring)' } : {}),
-            }}
+            className="p-1.5 rounded-full cursor-pointer"
+            style={{ color: 'var(--text-tertiary)' }}
           >
             <SkipForward className="w-4 h-4" />
           </motion.button>
+
+          <span className="text-xs px-2" style={{ color: 'var(--separator)' }}>|</span>
+
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={playMasterCollection}
+            className="px-3 py-1 rounded-full text-xs font-medium cursor-pointer"
+            style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}
+          >
+            Play All (1,899)
+          </motion.button>
         </div>
 
-        {/* Far Right: Clock */}
-        <div className="text-xs font-medium tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+        <div className="text-xs font-mono font-medium" style={{ color: 'var(--text-tertiary)' }}>
           {timeStr || '12:48 PM'}
         </div>
       </footer>
@@ -1228,10 +876,10 @@ export default function TVHomePage() {
     <Suspense
       fallback={
         <div
-          className="min-h-screen flex items-center justify-center font-mono text-sm"
+          className="min-h-screen flex items-center justify-center font-mono text-xs"
           style={{ background: 'var(--bg-primary)', color: 'var(--text-tertiary)' }}
         >
-          <Loader2 className="w-6 h-6 animate-spin mr-3" style={{ color: 'var(--accent)' }} />
+          <Loader2 className="w-5 h-5 animate-spin mr-2" style={{ color: 'var(--accent)' }} />
           Loading DriveFrame TV…
         </div>
       }
