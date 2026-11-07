@@ -1,21 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play,
-  Pause,
   SkipBack,
   SkipForward,
   Search,
   Frame,
   Shuffle,
-  Clock,
   Sparkles,
   Sliders,
-  Compass,
-  Heart,
   Plus,
   Loader2,
 } from 'lucide-react';
@@ -32,7 +28,6 @@ interface AlbumFolder {
 
 const DEFAULT_MAIN_FOLDER = '1qCPS0mAatpr5Yil7t2Zc7hcO9Lbt2ufi';
 
-// Fallback high-res real covers for the user's trip folders
 const FALLBACK_ALBUMS: AlbumFolder[] = [
   {
     id: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
@@ -71,6 +66,8 @@ const FALLBACK_ALBUMS: AlbumFolder[] = [
   },
 ];
 
+type FocusSection = 'nav' | 'slats' | 'arch' | 'rightCards' | 'dock';
+
 function CreativeTVContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -78,16 +75,21 @@ function CreativeTVContent() {
   const [albums, setAlbums] = useState<AlbumFolder[]>(FALLBACK_ALBUMS);
   const [activeTab, setActiveTab] = useState<'art' | 'tv' | 'favorites' | 'drive'>('art');
   const [expandedSlatIndex, setExpandedSlatIndex] = useState(0);
+  const [selectedRightCardIndex, setSelectedRightCardIndex] = useState(0);
   const [inSlideshow, setInSlideshow] = useState(false);
   const [activePhotos, setActivePhotos] = useState<DriveItem[]>([]);
-  const [isPlaying, setIsPlaying] = useState(true);
   const [timeStr, setTimeStr] = useState('');
   const [dateStr, setDateStr] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
   const [folderInput, setFolderInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Update Clock & Date
+  // Client-side Memory Cache for instant sub-millisecond album switches
+  const albumPhotosCache = useRef<Map<string, DriveItem[]>>(new Map());
+
+  // TV Remote Focus Zone
+  const [focusSection, setFocusSection] = useState<FocusSection>('slats');
+
+  // Clock & Date updater
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -103,7 +105,7 @@ function CreativeTVContent() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch albums from backend
+  // Fetch albums & trigger background preloading
   const fetchAlbums = useCallback(async (targetId: string) => {
     setIsLoading(true);
     try {
@@ -111,6 +113,23 @@ function CreativeTVContent() {
       const data = await res.json();
       if (data.subfolders && data.subfolders.length > 0) {
         setAlbums(data.subfolders);
+
+        // SILENT BACKGROUND PREFETCH: Pre-load top albums so playback is instant
+        data.subfolders.slice(0, 3).forEach((sub: AlbumFolder) => {
+          fetch(`/api/drive/folder?folder=${encodeURIComponent(sub.folderId)}`)
+            .then(r => r.json())
+            .then(subData => {
+              if (subData.items) {
+                albumPhotosCache.current.set(sub.folderId, subData.items);
+                // Pre-cache first image in browser memory
+                if (subData.items[0]?.previewUrl) {
+                  const img = new Image();
+                  img.src = subData.items[0].previewUrl;
+                }
+              }
+            })
+            .catch(() => {});
+        });
       }
     } catch {
       setAlbums(FALLBACK_ALBUMS);
@@ -125,13 +144,22 @@ function CreativeTVContent() {
     fetchAlbums(target);
   }, [searchParams, fetchAlbums]);
 
-  // Open Album and play
+  // Open Album (Instant if pre-cached!)
   const openAlbum = async (folderId: string) => {
+    // Check instant client memory cache
+    const cachedItems = albumPhotosCache.current.get(folderId);
+    if (cachedItems && cachedItems.length > 0) {
+      setActivePhotos(cachedItems);
+      setInSlideshow(true);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const res = await fetch(`/api/drive/folder?folder=${encodeURIComponent(folderId)}`);
       const data = await res.json();
       if (data.items && data.items.length > 0) {
+        albumPhotosCache.current.set(folderId, data.items);
         setActivePhotos(data.items);
         setInSlideshow(true);
       }
@@ -141,6 +169,78 @@ function CreativeTVContent() {
       setIsLoading(false);
     }
   };
+
+  // TV Remote Navigation Controls (Arrow keys, Enter, Back)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (inSlideshow) return;
+
+      switch (e.key) {
+        case 'ArrowRight':
+          e.preventDefault();
+          if (focusSection === 'slats') {
+            if (expandedSlatIndex < Math.min(2, albums.length - 1)) {
+              setExpandedSlatIndex(prev => prev + 1);
+            } else {
+              setFocusSection('arch');
+            }
+          } else if (focusSection === 'arch') {
+            setFocusSection('rightCards');
+          }
+          break;
+
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (focusSection === 'rightCards') {
+            setFocusSection('arch');
+          } else if (focusSection === 'arch') {
+            setFocusSection('slats');
+            setExpandedSlatIndex(2);
+          } else if (focusSection === 'slats') {
+            if (expandedSlatIndex > 0) {
+              setExpandedSlatIndex(prev => prev - 1);
+            }
+          }
+          break;
+
+        case 'ArrowDown':
+          e.preventDefault();
+          if (focusSection === 'nav') {
+            setFocusSection('slats');
+          } else if (focusSection === 'rightCards') {
+            setSelectedRightCardIndex(prev => Math.min(3, prev + 1));
+          } else {
+            setFocusSection('dock');
+          }
+          break;
+
+        case 'ArrowUp':
+          e.preventDefault();
+          if (focusSection === 'dock') {
+            setFocusSection('slats');
+          } else if (focusSection === 'rightCards' && selectedRightCardIndex > 0) {
+            setSelectedRightCardIndex(prev => prev - 1);
+          } else {
+            setFocusSection('nav');
+          }
+          break;
+
+        case 'Enter':
+          e.preventDefault();
+          if (focusSection === 'slats') {
+            openAlbum(albums[expandedSlatIndex]?.folderId || albums[0].folderId);
+          } else if (focusSection === 'arch') {
+            openAlbum(albums[0]?.folderId);
+          } else if (focusSection === 'rightCards') {
+            openAlbum(albums[selectedRightCardIndex]?.folderId);
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [focusSection, expandedSlatIndex, selectedRightCardIndex, albums, inSlideshow]);
 
   if (inSlideshow) {
     return (
@@ -154,9 +254,9 @@ function CreativeTVContent() {
   }
 
   return (
-    <div className="relative min-h-[100dvh] w-full bg-[#e9e9ed] text-[#1c1c1e] select-none flex flex-col justify-between p-6 lg:p-10 overflow-hidden font-sans">
+    <div className="relative min-h-[100dvh] w-full bg-[#ececee] text-[#1c1c1e] select-none flex flex-col justify-between p-6 lg:p-10 overflow-hidden font-sans">
       {/* Background Subtle Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#f4f4f7] via-[#e9e9ed] to-[#dfdfe4] pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#f8f8fa] via-[#ececee] to-[#e1e1e6] pointer-events-none" />
 
       {/* ========================================================= */}
       {/* 1. TOP MINIMALIST NAV BAR                                 */}
@@ -166,7 +266,7 @@ function CreativeTVContent() {
         <div className="flex items-center gap-10 text-xs tracking-wider uppercase font-medium text-black/50">
           <button
             onClick={() => setActiveTab('art')}
-            className={`transition-colors py-1 ${
+            className={`transition-all py-1 cursor-pointer ${
               activeTab === 'art' ? 'text-black font-semibold border-b-2 border-black' : 'hover:text-black/80'
             }`}
           >
@@ -174,15 +274,15 @@ function CreativeTVContent() {
           </button>
           <button
             onClick={() => setActiveTab('tv')}
-            className={`transition-colors py-1 ${
+            className={`transition-all py-1 cursor-pointer ${
               activeTab === 'tv' ? 'text-black font-semibold border-b-2 border-black' : 'hover:text-black/80'
             }`}
           >
-            Trip Gallery
+            Live TV
           </button>
           <button
             onClick={() => setActiveTab('favorites')}
-            className={`transition-colors py-1 ${
+            className={`transition-all py-1 cursor-pointer ${
               activeTab === 'favorites' ? 'text-black font-semibold border-b-2 border-black' : 'hover:text-black/80'
             }`}
           >
@@ -190,7 +290,7 @@ function CreativeTVContent() {
           </button>
           <button
             onClick={() => setActiveTab('drive')}
-            className={`transition-colors py-1 ${
+            className={`transition-all py-1 cursor-pointer ${
               activeTab === 'drive' ? 'text-black font-semibold border-b-2 border-black' : 'hover:text-black/80'
             }`}
           >
@@ -205,10 +305,9 @@ function CreativeTVContent() {
               e.preventDefault();
               if (folderInput.trim()) {
                 fetchAlbums(folderInput.trim());
-                setSearchOpen(false);
               }
             }}
-            className="flex items-center gap-2 bg-white/70 backdrop-blur-xl border border-black/[0.08] rounded-full px-4 py-2 shadow-sm focus-within:ring-2 focus-within:ring-black/15 transition-all"
+            className="flex items-center gap-2 bg-white/80 backdrop-blur-2xl border border-black/[0.08] rounded-full px-4 py-2 shadow-sm focus-within:ring-2 focus-within:ring-black/15 transition-all"
           >
             <Search className="w-3.5 h-3.5 text-black/40" />
             <input
@@ -231,22 +330,29 @@ function CreativeTVContent() {
         {/* ------------------------------------------------------- */}
         <div className="col-span-5 h-[62vh] flex gap-3">
           {albums.slice(0, 3).map((album, idx) => {
-            const isHovered = expandedSlatIndex === idx;
+            const isFocused = focusSection === 'slats' && expandedSlatIndex === idx;
             return (
               <motion.div
                 key={album.id}
-                onMouseEnter={() => setExpandedSlatIndex(idx)}
+                onMouseEnter={() => {
+                  setFocusSection('slats');
+                  setExpandedSlatIndex(idx);
+                }}
                 onClick={() => openAlbum(album.folderId)}
                 animate={{
-                  flex: isHovered ? 2.5 : 1,
+                  flex: isFocused ? 2.6 : 1,
+                  scale: isFocused ? 1.02 : 1,
                 }}
-                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-                className="relative h-full rounded-2xl overflow-hidden cursor-pointer shadow-[0_15px_35px_rgba(0,0,0,0.12)] group"
+                transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                className={`relative h-full rounded-2xl overflow-hidden cursor-pointer shadow-[0_15px_35px_rgba(0,0,0,0.1)] group transition-all duration-300 ${
+                  isFocused ? 'ring-3 ring-black shadow-2xl' : ''
+                }`}
               >
                 <img
                   src={album.coverThumbnailUrl}
                   alt={album.title}
                   className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                  loading="eager"
                 />
 
                 {/* Scrim Overlay */}
@@ -260,14 +366,14 @@ function CreativeTVContent() {
                   <h3 className="text-xl font-bold tracking-tight text-white drop-shadow truncate mt-0.5">
                     {album.title}
                   </h3>
-                  {isHovered && (
+                  {isFocused && (
                     <motion.p
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="text-xs text-white/80 font-light mt-1 flex items-center gap-1.5"
                     >
                       <Play className="w-3 h-3 fill-white" />
-                      <span>Click to Play</span>
+                      <span>Press OK to Play</span>
                     </motion.p>
                   )}
                 </div>
@@ -280,13 +386,31 @@ function CreativeTVContent() {
         {/* CENTER: ARCHED GLASS AMBIENT CLOCK & WEATHER WIDGET     */}
         {/* ------------------------------------------------------- */}
         <div className="col-span-4 h-[65vh] flex justify-center">
-          <div className="relative w-full max-w-[340px] h-full rounded-t-[170px] rounded-b-[36px] bg-white/75 backdrop-blur-2xl border border-white shadow-[0_25px_60px_rgba(0,0,0,0.08)] p-8 flex flex-col justify-between items-center text-center">
-            {/* Top 3D Glowing Orb (The Sun Widget) */}
+          <motion.div
+            initial={{ scale: 0.96, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+            className={`relative w-full max-w-[340px] h-full rounded-t-[170px] rounded-b-[36px] bg-white/80 backdrop-blur-3xl border border-white shadow-[0_25px_60px_rgba(0,0,0,0.06)] p-8 flex flex-col justify-between items-center text-center transition-all duration-300 ${
+              focusSection === 'arch' ? 'ring-3 ring-black shadow-2xl scale-102' : ''
+            }`}
+          >
+            {/* Top 3D Glowing Orb with Ambient Breathing Animation */}
             <div className="mt-8 flex flex-col items-center">
-              <div className="relative w-24 h-24 rounded-full bg-gradient-to-tr from-[#ff9f43] via-[#ff793f] to-[#ff5252] shadow-[0_15px_35px_rgba(255,121,63,0.4)] flex items-center justify-center">
+              <motion.div
+                animate={{
+                  scale: [1, 1.06, 1],
+                  filter: [
+                    'drop-shadow(0 15px 30px rgba(255,121,63,0.35))',
+                    'drop-shadow(0 20px 45px rgba(255,121,63,0.55))',
+                    'drop-shadow(0 15px 30px rgba(255,121,63,0.35))',
+                  ],
+                }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                className="relative w-24 h-24 rounded-full bg-gradient-to-tr from-[#ff9f43] via-[#ff793f] to-[#ff5252] flex items-center justify-center cursor-pointer"
+              >
                 <div className="absolute inset-1 rounded-full bg-gradient-to-tr from-transparent via-white/30 to-white/60 blur-[1px]" />
-                <Sparkles className="w-8 h-8 text-white/90 drop-shadow" />
-              </div>
+                <Sparkles className="w-8 h-8 text-white/95 drop-shadow" />
+              </motion.div>
             </div>
 
             {/* Middle Time & Weather */}
@@ -304,13 +428,17 @@ function CreativeTVContent() {
             </div>
 
             {/* Bottom Play Slideshow Pill */}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => {
                 if (albums.length > 0) {
                   openAlbum(albums[0].folderId);
                 }
               }}
-              className="w-full py-3.5 px-6 rounded-full bg-[#1c1c1e] text-white font-medium text-xs tracking-wide hover:bg-black transition-all active:scale-95 shadow-md flex items-center justify-center gap-2"
+              className={`w-full py-3.5 px-6 rounded-full font-medium text-xs tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
+                focusSection === 'arch' ? 'bg-black text-white ring-2 ring-black' : 'bg-[#1c1c1e] text-white hover:bg-black'
+              }`}
             >
               {isLoading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -318,51 +446,60 @@ function CreativeTVContent() {
                 <Play className="w-3.5 h-3.5 fill-current" />
               )}
               <span>Play Featured Album</span>
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
         </div>
 
         {/* ------------------------------------------------------- */}
         {/* RIGHT: FLOATING 3D PERSPECTIVE APP CARDS               */}
         {/* ------------------------------------------------------- */}
         <div className="col-span-3 h-[62vh] flex flex-col justify-between py-2 [perspective:1000px]">
-          {albums.slice(0, 4).map((album, idx) => (
-            <motion.div
-              key={album.id}
-              onClick={() => openAlbum(album.folderId)}
-              whileHover={{
-                rotateY: 0,
-                x: -12,
-                scale: 1.05,
-              }}
-              transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-              style={{
-                transform: 'rotateY(-14deg)',
-                transformOrigin: 'right center',
-              }}
-              className="group cursor-pointer rounded-2xl p-4 bg-white/80 backdrop-blur-xl border border-white shadow-[0_12px_28px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_45px_rgba(0,0,0,0.14)] flex items-center justify-between transition-all"
-            >
-              <div className="flex items-center gap-3 truncate">
-                <div className="w-12 h-10 rounded-xl overflow-hidden shadow-sm shrink-0 bg-black/10">
-                  <img
-                    src={album.coverThumbnailUrl}
-                    alt={album.title}
-                    className="w-full h-full object-cover"
-                  />
+          {albums.slice(0, 4).map((album, idx) => {
+            const isCardFocused = focusSection === 'rightCards' && selectedRightCardIndex === idx;
+            return (
+              <motion.div
+                key={album.id}
+                onMouseEnter={() => {
+                  setFocusSection('rightCards');
+                  setSelectedRightCardIndex(idx);
+                }}
+                onClick={() => openAlbum(album.folderId)}
+                animate={{
+                  rotateY: isCardFocused ? 0 : -14,
+                  x: isCardFocused ? -14 : 0,
+                  scale: isCardFocused ? 1.05 : 1,
+                }}
+                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                style={{
+                  transformOrigin: 'right center',
+                }}
+                className={`group cursor-pointer rounded-2xl p-4 bg-white/85 backdrop-blur-2xl border border-white shadow-[0_12px_28px_rgba(0,0,0,0.06)] flex items-center justify-between transition-all ${
+                  isCardFocused ? 'ring-3 ring-black shadow-2xl' : 'hover:shadow-[0_20px_45px_rgba(0,0,0,0.12)]'
+                }`}
+              >
+                <div className="flex items-center gap-3 truncate">
+                  <div className="w-12 h-10 rounded-xl overflow-hidden shadow-sm shrink-0 bg-black/10">
+                    <img
+                      src={album.coverThumbnailUrl}
+                      alt={album.title}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="truncate">
+                    <h4 className="text-sm font-semibold text-[#1c1c1e] truncate group-hover:text-black">
+                      {album.title}
+                    </h4>
+                    <p className="text-[10px] text-black/45 font-mono">Trip Collection</p>
+                  </div>
                 </div>
-                <div className="truncate">
-                  <h4 className="text-sm font-semibold text-[#1c1c1e] truncate group-hover:text-black">
-                    {album.title}
-                  </h4>
-                  <p className="text-[10px] text-black/45 font-mono">Trip Collection</p>
-                </div>
-              </div>
 
-              <div className="w-7 h-7 rounded-full bg-black/5 flex items-center justify-center text-black/60 group-hover:bg-black group-hover:text-white transition-colors shrink-0">
-                <Play className="w-3 h-3 fill-current ml-0.5" />
-              </div>
-            </motion.div>
-          ))}
+                <div className="w-7 h-7 rounded-full bg-black/5 flex items-center justify-center text-black/60 group-hover:bg-black group-hover:text-white transition-colors shrink-0">
+                  <Play className="w-3 h-3 fill-current ml-0.5" />
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       </main>
 
@@ -381,7 +518,7 @@ function CreativeTVContent() {
             </div>
             <button
               onClick={() => router.push('/tv/pair')}
-              className="w-8 h-8 rounded-full bg-black/10 border-2 border-white flex items-center justify-center text-xs text-black/60 hover:bg-black hover:text-white transition-colors shadow-sm"
+              className="w-8 h-8 rounded-full bg-black/10 border-2 border-white flex items-center justify-center text-xs text-black/60 hover:bg-black hover:text-white transition-colors shadow-sm cursor-pointer"
               title="Pair New Device"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -393,12 +530,12 @@ function CreativeTVContent() {
         </div>
 
         {/* Center: Frosted Glass Utility Pills */}
-        <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xl border border-black/[0.06] rounded-full p-1.5 shadow-sm">
+        <div className="flex items-center gap-2 bg-white/80 backdrop-blur-2xl border border-black/[0.06] rounded-full p-1.5 shadow-sm">
           <button
             onClick={() => {
               if (albums.length > 0) openAlbum(albums[0].folderId);
             }}
-            className="p-2 rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-colors"
+            className="p-2 rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-colors cursor-pointer"
             title="Art Frame Mode"
           >
             <Frame className="w-4 h-4" />
@@ -408,14 +545,14 @@ function CreativeTVContent() {
               const shuffled = [...albums].sort(() => Math.random() - 0.5);
               setAlbums(shuffled);
             }}
-            className="p-2 rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-colors"
+            className="p-2 rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-colors cursor-pointer"
             title="Shuffle Collections"
           >
             <Shuffle className="w-4 h-4" />
           </button>
           <button
             onClick={() => router.push('/tv/pair')}
-            className="p-2 rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-colors"
+            className="p-2 rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-colors cursor-pointer"
             title="Settings & Pairing"
           >
             <Sliders className="w-4 h-4" />
@@ -426,7 +563,7 @@ function CreativeTVContent() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setExpandedSlatIndex(prev => (prev - 1 + 3) % 3)}
-            className="text-black/50 hover:text-black transition-colors"
+            className="text-black/50 hover:text-black transition-colors cursor-pointer"
           >
             <SkipBack className="w-4 h-4" />
           </button>
@@ -434,13 +571,13 @@ function CreativeTVContent() {
             onClick={() => {
               if (albums.length > 0) openAlbum(albums[expandedSlatIndex].folderId);
             }}
-            className="w-9 h-9 rounded-full bg-white shadow-sm border border-black/[0.08] flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-all"
+            className="w-9 h-9 rounded-full bg-white shadow-sm border border-black/[0.08] flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-all cursor-pointer"
           >
             <Play className="w-4 h-4 fill-current ml-0.5" />
           </button>
           <button
             onClick={() => setExpandedSlatIndex(prev => (prev + 1) % 3)}
-            className="text-black/50 hover:text-black transition-colors"
+            className="text-black/50 hover:text-black transition-colors cursor-pointer"
           >
             <SkipForward className="w-4 h-4" />
           </button>
@@ -459,7 +596,7 @@ export default function TVHomePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#e9e9ed] text-black/40 flex items-center justify-center font-mono">
+        <div className="min-h-screen bg-[#ececee] text-black/40 flex items-center justify-center font-mono">
           Loading DriveFrame TV...
         </div>
       }

@@ -31,6 +31,10 @@ const KNOWN_COVERS: Record<string, string> = {
   '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC': 'https://lh3.googleusercontent.com/d/17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91=s1000', // Pachmari
 };
 
+// High-performance server memory cache (1 hour TTL)
+const folderCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const input = searchParams.get('folder') || '1qCPS0mAatpr5Yil7t2Zc7hcO9Lbt2ufi';
@@ -50,6 +54,18 @@ export async function GET(req: NextRequest) {
 
   if (!folderId) {
     return NextResponse.json({ error: 'Folder ID or URL required' }, { status: 400 });
+  }
+
+  // Check in-memory cache first (instant 2ms response!)
+  const now = Date.now();
+  const cached = folderCache.get(folderId);
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return NextResponse.json(cached.data, {
+      headers: {
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
+        'X-Cache': 'HIT',
+      },
+    });
   }
 
   try {
@@ -143,13 +159,22 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const result = {
       folderId,
       title: folderTitle,
       hasSubfolders: subfolders.length > 0,
       subfolders,
       itemCount: items.length,
       items,
+    };
+
+    folderCache.set(folderId, { data: result, timestamp: Date.now() });
+
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
+        'X-Cache': 'MISS',
+      },
     });
   } catch (err: any) {
     console.error('Drive Folder Parse Error:', err);
