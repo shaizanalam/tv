@@ -8,21 +8,25 @@ import {
   SkipBack,
   SkipForward,
   Search,
-  Frame,
   Shuffle,
   Sparkles,
-  Sliders,
+  SlidersHorizontal,
   Plus,
   Loader2,
-  Tv,
   Image as ImageIcon,
   Film,
   Compass,
-  Check,
   ChevronRight,
+  Moon,
+  Sun,
+  Volume2,
 } from 'lucide-react';
 import { SlideshowPlayer } from '@/components/slideshow/SlideshowPlayer';
 import { DriveItem } from '@/lib/types';
+
+/* ============================================================
+   Type Definitions
+   ============================================================ */
 
 export interface HighlightShot {
   url: string;
@@ -42,6 +46,10 @@ export interface AlbumFolder {
   videoCount: number;
   totalCount: number;
 }
+
+/* ============================================================
+   Constants
+   ============================================================ */
 
 const DEFAULT_MAIN_FOLDER = '1qCPS0mAatpr5Yil7t2Zc7hcO9Lbt2ufi';
 
@@ -203,9 +211,48 @@ const FALLBACK_COVER = '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv';
 
 type FocusSection = 'navTabs' | 'pills' | 'slats' | 'arch' | 'rightCards' | 'dock' | 'search';
 
+/* ============================================================
+   Spring Physics Constants (Apple HIG §2.A)
+   ============================================================ */
+const SPRING_SNAPPY = { type: 'spring' as const, stiffness: 400, damping: 30 }; // ζ≈1.0, T≈0.25s — controls, toggles
+const SPRING_SHEET  = { type: 'spring' as const, stiffness: 300, damping: 28 }; // ζ≈1.0, T≈0.35s — panels, sheets
+const SPRING_CARD   = { type: 'spring' as const, stiffness: 260, damping: 24 }; // ζ≈0.9, T≈0.4s  — card repositioning
+
+/* ============================================================
+   Dark Mode Hook
+   ============================================================ */
+function useDarkMode() {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    setIsDark(root.classList.contains('dark'));
+
+    const observer = new MutationObserver(() => {
+      setIsDark(root.classList.contains('dark'));
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  const toggle = useCallback(() => {
+    const root = document.documentElement;
+    const next = !root.classList.contains('dark');
+    root.classList.toggle('dark', next);
+    localStorage.setItem('driveframe-theme', next ? 'dark' : 'light');
+    setIsDark(next);
+  }, []);
+
+  return { isDark, toggle };
+}
+
+/* ============================================================
+   Main TV Page Content
+   ============================================================ */
 function CreativeTVContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isDark, toggle: toggleTheme } = useDarkMode();
 
   const [albums, setAlbums] = useState<AlbumFolder[]>(VERIFIED_TRIPS);
   const [selectedAlbumIndex, setSelectedAlbumIndex] = useState(0);
@@ -221,6 +268,7 @@ function CreativeTVContent() {
   const [folderInput, setFolderInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingAlbumTitle, setLoadingAlbumTitle] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
 
   // Client-side Memory Cache for sub-millisecond album switches
   const albumPhotosCache = useRef<Map<string, DriveItem[]>>(new Map());
@@ -236,7 +284,7 @@ function CreativeTVContent() {
         now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
       );
       setDateStr(
-        now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' })
+        now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })
       );
     };
     updateTime();
@@ -520,77 +568,127 @@ function CreativeTVContent() {
     );
   }
 
+  const tabs = [
+    { key: 'art' as const, label: 'Art Mode' },
+    { key: 'trips' as const, label: 'Trips' },
+    { key: 'favorites' as const, label: 'Favorites' },
+    { key: 'ambient' as const, label: 'Ambient' },
+  ];
+
   return (
-    <div className="relative min-h-[100dvh] w-full bg-[#ececee] text-[#1c1c1e] select-none flex flex-col justify-between p-5 lg:p-7 xl:p-8 overflow-hidden font-sans">
-      {/* Background Subtle Gradient & Studio Lighting */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#f8f8fa] via-[#ececee] to-[#e0e0e5] pointer-events-none" />
+    <div
+      className="relative min-h-[100dvh] w-full select-none flex flex-col justify-between p-5 lg:p-7 xl:p-8 overflow-hidden font-sans transition-colors duration-500"
+      style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+    >
+      {/* Subtle ambient gradient background */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-opacity duration-700"
+        style={{
+          background: isDark
+            ? 'radial-gradient(ellipse at 30% 20%, rgba(255,160,48,0.04) 0%, transparent 60%), radial-gradient(ellipse at 80% 80%, rgba(28,28,30,0.5) 0%, transparent 50%)'
+            : 'radial-gradient(ellipse at 30% 20%, rgba(232,134,12,0.04) 0%, transparent 60%), linear-gradient(135deg, #f8f8fa 0%, #ececee 50%, #e2e2e7 100%)',
+        }}
+      />
 
       {/* Loading Modal Overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 z-50 bg-black/25 backdrop-blur-md flex flex-col items-center justify-center text-white">
-          <div className="bg-[#1c1c1e]/95 p-8 rounded-3xl border border-white/10 flex flex-col items-center gap-4 shadow-2xl">
-            <Loader2 className="w-10 h-10 animate-spin text-amber-400" />
-            <div className="text-center">
-              <h3 className="text-lg font-medium">Opening {loadingAlbumTitle || 'Collection'}</h3>
-              <p className="text-xs text-white/50 font-mono mt-1">
-                Streaming Google Drive photos & videos...
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 z-50 flex flex-col items-center justify-center"
+            style={{ background: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.25)', backdropFilter: 'blur(16px)' }}
+          >
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={SPRING_SHEET}
+              className="glass p-8 rounded-3xl flex flex-col items-center gap-4"
+              style={{ minWidth: 220 }}
+            >
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
+              <div className="text-center">
+                <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Opening {loadingAlbumTitle || 'Collection'}
+                </h3>
+                <p className="text-xs mt-1 font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                  Streaming from Google Drive…
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ========================================================= */}
-      {/* 1. SCANDINAVIAN / APPLE TV TOP NAVIGATION HEADER          */}
+      {/* 1. TOP NAVIGATION HEADER                                  */}
       {/* ========================================================= */}
-      <header className="relative z-20 flex flex-col gap-2.5 pb-2">
+      <header className="relative z-20 flex flex-col gap-3 pb-1">
         <div className="flex items-center justify-between">
-          {/* Subtle Top Categories (Art Mode, Live TV, Favorites) - Clean text, NO underline! */}
-          <div className="flex items-center gap-6 lg:gap-8">
-            <button
-              onClick={() => setActiveTab('art')}
-              className={`text-sm lg:text-base tracking-tight transition-colors cursor-pointer ${
-                activeTab === 'art'
-                  ? 'font-bold text-black'
-                  : 'font-normal text-black/45 hover:text-black/80'
-              }`}
-            >
-              Art mode
-            </button>
-            <button
-              onClick={() => setActiveTab('trips')}
-              className={`text-sm lg:text-base tracking-tight transition-colors cursor-pointer ${
-                activeTab === 'trips'
-                  ? 'font-bold text-black'
-                  : 'font-normal text-black/45 hover:text-black/80'
-              }`}
-            >
-              Trip Gallery
-            </button>
-            <button
-              onClick={() => setActiveTab('favorites')}
-              className={`text-sm lg:text-base tracking-tight transition-colors cursor-pointer ${
-                activeTab === 'favorites'
-                  ? 'font-bold text-black'
-                  : 'font-normal text-black/45 hover:text-black/80'
-              }`}
-            >
-              Favorites
-            </button>
-            <button
-              onClick={() => setActiveTab('ambient')}
-              className={`text-sm lg:text-base tracking-tight transition-colors cursor-pointer ${
-                activeTab === 'ambient'
-                  ? 'font-bold text-black'
-                  : 'font-normal text-black/45 hover:text-black/80'
-              }`}
-            >
-              Ambient TV
-            </button>
-          </div>
+          {/* Tab Navigation */}
+          <nav className="flex items-center gap-1 p-1 rounded-xl" role="tablist">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveTab(tab.key)}
+                  className="relative px-4 py-1.5 text-sm tracking-tight cursor-pointer transition-all duration-200"
+                  style={{
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                    fontWeight: isActive ? 700 : 400,
+                  }}
+                >
+                  {tab.label}
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeTab"
+                      className="absolute inset-0 rounded-lg -z-10"
+                      style={{ background: 'var(--accent-soft)' }}
+                      transition={SPRING_SNAPPY}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
 
-          {/* Search / Google Drive Link Input Pill */}
-          <div className="relative">
+          {/* Right: Theme toggle + Search */}
+          <div className="flex items-center gap-3">
+            {/* Dark/Light Mode Toggle */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={toggleTheme}
+              className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+              style={{
+                background: 'var(--card-bg)',
+                border: '1px solid var(--card-border)',
+              }}
+              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={isDark ? 'moon' : 'sun'}
+                  initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
+                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                  exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
+                  transition={SPRING_SNAPPY}
+                >
+                  {isDark ? (
+                    <Moon className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                  ) : (
+                    <Sun className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </motion.button>
+
+            {/* Search Input */}
             <form
               onSubmit={e => {
                 e.preventDefault();
@@ -598,30 +696,35 @@ function CreativeTVContent() {
                   fetchAlbums(folderInput.trim());
                 }
               }}
-              className={`flex items-center gap-2 bg-white/80 hover:bg-white/95 backdrop-blur-2xl border rounded-full px-4 py-1.5 shadow-sm transition-all ${
-                focusSection === 'search'
-                  ? 'ring-3 ring-black/90 border-transparent bg-white shadow-md'
-                  : 'border-black/[0.08]'
-              }`}
+              className="glass flex items-center gap-2 rounded-full px-4 py-2 transition-all"
+              style={{
+                boxShadow: searchFocused ? '0 0 0 2px var(--accent)' : 'var(--glass-shadow)',
+              }}
             >
-              <Search className="w-3.5 h-3.5 text-black/40" />
+              <Search className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--text-tertiary)' }} />
               <input
                 type="text"
                 value={folderInput}
                 onChange={e => setFolderInput(e.target.value)}
-                placeholder="Search or paste Drive folder..."
-                className="bg-transparent border-none text-xs text-black/80 placeholder:text-black/35 focus:outline-none w-44 md:w-56"
+                onFocus={() => { setSearchFocused(true); setFocusSection('search'); }}
+                onBlur={() => setSearchFocused(false)}
+                placeholder="Paste Drive folder link…"
+                className="bg-transparent border-none text-xs focus:outline-none w-36 md:w-48"
+                style={{ color: 'var(--text-primary)' }}
               />
             </form>
           </div>
         </div>
 
         {/* ========================================================= */}
-        {/* ALL 5 TRIPS EXPLICITLY LISTED ONCE IN QUICK PILL STRIP    */}
+        {/* ALL 5 TRIPS PILL STRIP                                    */}
         {/* ========================================================= */}
-        <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-black/45 mr-1 shrink-0 font-medium">
-            All 5 Trips:
+        <div className="flex items-center gap-2 overflow-x-auto py-0.5 no-scrollbar">
+          <span
+            className="text-[10px] font-medium uppercase tracking-widest mr-1 shrink-0"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            Collections
           </span>
 
           {albums.map((alb, idx) => {
@@ -629,8 +732,9 @@ function CreativeTVContent() {
             const isSelected = selectedRightCardIndex === idx;
 
             return (
-              <button
+              <motion.button
                 key={alb.id}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => {
                   setSelectedRightCardIndex(idx);
                   setSelectedAlbumIndex(idx);
@@ -640,46 +744,65 @@ function CreativeTVContent() {
                   setSelectedRightCardIndex(idx);
                   setSelectedAlbumIndex(idx);
                 }}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all shrink-0 ${
-                  isPillFocused
-                    ? 'bg-black text-white ring-2 ring-black shadow-md scale-105'
+                className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all shrink-0"
+                style={{
+                  background: isPillFocused
+                    ? 'var(--text-primary)'
                     : isSelected
-                    ? 'bg-white text-black shadow-sm border border-black/20 font-semibold'
-                    : 'bg-white/60 text-black/70 hover:bg-white hover:text-black border border-black/[0.06]'
-                }`}
+                    ? 'var(--card-bg)'
+                    : 'transparent',
+                  color: isPillFocused
+                    ? 'var(--bg-primary)'
+                    : isSelected
+                    ? 'var(--text-primary)'
+                    : 'var(--text-secondary)',
+                  border: `1px solid ${isPillFocused ? 'var(--text-primary)' : isSelected ? 'var(--card-border)' : 'var(--separator)'}`,
+                  boxShadow: isPillFocused
+                    ? '0 4px 16px rgba(0,0,0,0.15)'
+                    : isSelected
+                    ? 'var(--card-shadow)'
+                    : 'none',
+                  fontWeight: isSelected ? 600 : 500,
+                }}
               >
-                <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-amber-400' : 'bg-black/20'}`} />
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: isSelected ? 'var(--accent)' : 'var(--text-tertiary)' }}
+                />
                 <span>{alb.title}</span>
-                <span className="text-[10px] font-mono text-black/45">
-                  ({alb.totalCount})
+                <span className="text-[10px] font-mono" style={{ opacity: 0.5 }}>
+                  {alb.totalCount}
                 </span>
-              </button>
+              </motion.button>
             );
           })}
 
           {/* Master Collection Pill: Play All 5 Trips (1,899 Items) */}
-          <button
+          <motion.button
+            whileTap={{ scale: 0.95 }}
             onClick={playMasterCollection}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all shrink-0 ${
-              focusSection === 'pills' && selectedPillIndex === albums.length
-                ? 'bg-black text-amber-300 ring-2 ring-black shadow-md scale-105'
-                : 'bg-stone-900 text-white hover:bg-black shadow-sm'
-            }`}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all shrink-0"
+            style={{
+              background: focusSection === 'pills' && selectedPillIndex === albums.length
+                ? 'var(--accent)'
+                : 'var(--text-primary)',
+              color: 'var(--bg-primary)',
+            }}
           >
-            <Compass className="w-3.5 h-3.5 text-amber-400" />
-            <span>Play All 5 Trips (1,899)</span>
-          </button>
+            <Compass className="w-3.5 h-3.5" style={{ opacity: 0.8 }} />
+            <span>Play All · 1,899</span>
+          </motion.button>
         </div>
       </header>
 
       {/* ========================================================= */}
       {/* 2. MAIN 3-PANEL SHOWCASE                                  */}
       {/* ========================================================= */}
-      <main className="relative z-10 flex-1 grid grid-cols-12 gap-5 lg:gap-7 items-center my-1">
+      <main className="relative z-10 flex-1 grid grid-cols-12 gap-4 lg:gap-6 items-center my-1">
         {/* ------------------------------------------------------- */}
         {/* LEFT: 3 DYNAMIC HIGHLIGHT SHOTS FOR THE SELECTED ALBUM  */}
         {/* ------------------------------------------------------- */}
-        <div className="col-span-5 h-[63vh] flex gap-3">
+        <div className="col-span-5 h-[62vh] flex gap-2.5">
           {activeHighlights.map((shot, idx) => {
             const isCenterSlat = idx === 0;
             const isSlatFocused =
@@ -694,16 +817,22 @@ function CreativeTVContent() {
                 }}
                 onClick={() => openAlbum(activeFeaturedTrip.folderId, activeFeaturedTrip.title)}
                 animate={{
-                  flexGrow: isSlatFocused ? 2.6 : 1,
-                  scale: isSlatFocused ? 1.01 : 1,
+                  flexGrow: isSlatFocused ? 2.8 : 1,
+                  scale: isSlatFocused ? 1.0 : 0.98,
                 }}
-                transition={{ type: 'spring', stiffness: 340, damping: 28 }}
-                className={`relative h-full basis-0 rounded-2xl overflow-hidden cursor-pointer shadow-[0_15px_35px_rgba(0,0,0,0.08)] group transition-all duration-300 bg-stone-300 ${
-                  isSlatFocused
-                    ? 'ring-4 ring-black/90 ring-offset-2 ring-offset-[#ececee] shadow-2xl z-10'
-                    : 'opacity-90 hover:opacity-100'
-                }`}
+                transition={SPRING_CARD}
+                className="relative h-full basis-0 rounded-2xl overflow-hidden cursor-pointer group"
+                style={{
+                  boxShadow: isSlatFocused
+                    ? '0 20px 50px rgba(0,0,0,0.15)'
+                    : '0 8px 24px rgba(0,0,0,0.06)',
+                  outline: isSlatFocused ? '3px solid var(--focus-ring)' : 'none',
+                  outlineOffset: '3px',
+                }}
               >
+                {/* Skeleton placeholder while image loads */}
+                <div className="absolute inset-0 skeleton" />
+
                 {/* Background Cover Photo with Same-Origin Proxy */}
                 <img
                   src={shot.url}
@@ -715,42 +844,68 @@ function CreativeTVContent() {
                     target.onerror = null;
                     target.src = FALLBACK_COVER;
                   }}
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                  className="relative w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                   loading="eager"
                 />
 
                 {/* Scrim Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
+                <div className="absolute inset-0" style={{ background: 'var(--scrim)' }} />
 
                 {/* Slat Content Info */}
-                <div className="absolute bottom-5 left-4 right-4 text-white">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-[10px] font-mono tracking-wider text-amber-300 mb-1.5 font-semibold">
-                    <span>{shot.tag}</span>
+                <div className="absolute bottom-4 left-4 right-4 text-white">
+                  <div
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-wider font-semibold mb-1.5"
+                    style={{
+                      background: 'rgba(0,0,0,0.4)',
+                      backdropFilter: 'blur(12px)',
+                      color: 'var(--accent)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                    }}
+                  >
+                    {shot.tag}
                   </div>
 
-                  <h3 className="text-xl lg:text-2xl font-bold tracking-tight text-white drop-shadow truncate">
+                  <h3 className="text-lg lg:text-xl font-bold tracking-tight text-white drop-shadow-sm truncate">
                     {shot.title}
                   </h3>
-                  <p className="text-xs text-white/70 font-light truncate">
+                  <p className="text-[11px] text-white/65 font-light truncate">
                     {shot.subtitle}
                   </p>
 
-                  {isSlatFocused && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-2.5 flex items-center justify-between text-xs text-white/90"
-                    >
-                      <div className="flex items-center gap-1.5 font-light">
-                        <ImageIcon className="w-3.5 h-3.5 text-amber-300" />
-                        <span>{activeFeaturedTrip.title}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-medium border border-white/25">
-                        <Play className="w-3 h-3 fill-white" />
-                        <span>Play [OK]</span>
-                      </div>
-                    </motion.div>
-                  )}
+                  <AnimatePresence>
+                    {isSlatFocused && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 4 }}
+                        transition={SPRING_SNAPPY}
+                        className="mt-3 flex items-center justify-between text-xs text-white/85"
+                      >
+                        <div className="flex items-center gap-1.5 font-light">
+                          <ImageIcon className="w-3 h-3" style={{ color: 'var(--accent)' }} />
+                          <span>{activeFeaturedTrip.photoCount} photos</span>
+                          {activeFeaturedTrip.videoCount > 0 && (
+                            <>
+                              <span className="text-white/30">·</span>
+                              <Film className="w-3 h-3" style={{ color: 'var(--accent)', opacity: 0.7 }} />
+                              <span>{activeFeaturedTrip.videoCount} videos</span>
+                            </>
+                          )}
+                        </div>
+                        <div
+                          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium"
+                          style={{
+                            background: 'rgba(255,255,255,0.18)',
+                            backdropFilter: 'blur(12px)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                          }}
+                        >
+                          <Play className="w-2.5 h-2.5 fill-white" />
+                          <span>Play</span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
             );
@@ -758,65 +913,66 @@ function CreativeTVContent() {
         </div>
 
         {/* ------------------------------------------------------- */}
-        {/* CENTER: ARCHED GLASS AMBIENT CLOCK & ORB WIDGET         */}
+        {/* CENTER: AMBIENT CLOCK & ORB WIDGET (Arched Glass)       */}
         {/* ------------------------------------------------------- */}
-        <div className="col-span-4 h-[65vh] flex justify-center">
+        <div className="col-span-4 h-[64vh] flex justify-center">
           <motion.div
             initial={{ scale: 0.96, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-            className={`relative w-full max-w-[330px] h-full rounded-t-[190px] rounded-b-[40px] bg-gradient-to-b from-white/95 via-white/80 to-white/65 backdrop-blur-3xl border border-white/90 shadow-[0_25px_60px_rgba(0,0,0,0.06)] p-7 flex flex-col justify-between items-center text-center transition-all duration-300 ${
-              focusSection === 'arch'
-                ? 'ring-4 ring-black/90 ring-offset-2 ring-offset-[#ececee] shadow-2xl scale-[1.02]'
-                : ''
-            }`}
+            transition={SPRING_SHEET}
+            className="relative w-full max-w-[320px] h-full rounded-t-[180px] rounded-b-[36px] glass flex flex-col justify-between items-center text-center transition-all duration-300"
+            style={{
+              padding: '1.75rem',
+              outline: focusSection === 'arch' ? '3px solid var(--focus-ring)' : 'none',
+              outlineOffset: '3px',
+            }}
           >
-            {/* Top 3D Glowing Celestial Orb with Ambient Breathing Glow */}
-            <div className="mt-4 flex flex-col items-center">
-              <motion.div
-                animate={{
-                  scale: [1, 1.05, 1],
-                  filter: [
-                    'drop-shadow(0 15px 30px rgba(255,121,63,0.35))',
-                    'drop-shadow(0 20px 48px rgba(255,121,63,0.60))',
-                    'drop-shadow(0 15px 30px rgba(255,121,63,0.35))',
-                  ],
+            {/* Top: Breathing Celestial Orb */}
+            <div className="mt-6 flex flex-col items-center">
+              <div
+                className="relative w-20 h-20 rounded-full flex items-center justify-center cursor-pointer animate-breathe"
+                style={{
+                  background: `linear-gradient(135deg, var(--orb-from), var(--orb-via), var(--orb-to))`,
                 }}
-                transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
-                className="relative w-22 h-22 rounded-full bg-gradient-to-tr from-[#ff9f43] via-[#ff793f] to-[#ff5252] flex items-center justify-center cursor-pointer shadow-lg"
               >
                 {/* Specular Light Refraction Ring */}
-                <div className="absolute inset-1.5 rounded-full bg-gradient-to-tr from-transparent via-white/30 to-white/70 blur-[1px]" />
-                <Sparkles className="w-8 h-8 text-white/95 drop-shadow" />
-              </motion.div>
+                <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-transparent via-white/25 to-white/60 blur-[0.5px]" />
+                <Sparkles className="w-7 h-7 text-white/90 drop-shadow" />
+              </div>
             </div>
 
-            {/* Middle Temperature, Time & Location */}
-            <div className="space-y-1 my-auto">
-              <div className="text-5xl font-extralight tracking-tight text-[#1c1c1e] font-sans">
+            {/* Middle: Time & Selected Trip Info */}
+            <div className="space-y-1.5 my-auto">
+              <div
+                className="text-5xl font-extralight tracking-tight"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {timeStr.split(' ')[0] || '12:48'}
               </div>
-              <p className="text-xs text-black/45 font-medium tracking-wide">
-                feels like 14° · Ambient Frame
+              <p className="text-[11px] font-medium tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                {dateStr || 'Saturday, Nov 7'}
               </p>
-              <div className="pt-2">
-                <p className="text-sm font-semibold text-black/85">{activeFeaturedTrip.title}</p>
-                <p className="text-[11px] text-black/50 font-normal">
-                  {activeFeaturedTrip.totalCount} Photos & Videos
+              <div className="pt-3">
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {activeFeaturedTrip.title}
+                </p>
+                <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                  {activeFeaturedTrip.photoCount} Photos · {activeFeaturedTrip.videoCount} Videos
                 </p>
               </div>
             </div>
 
-            {/* Bottom Play Slideshow Pill Button */}
+            {/* Bottom: Play Button */}
             <motion.button
-              whileHover={{ scale: 1.03 }}
+              whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => openAlbum(activeFeaturedTrip.folderId, activeFeaturedTrip.title)}
-              className={`w-full py-3 px-6 rounded-full font-medium text-xs tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
-                focusSection === 'arch'
-                  ? 'bg-black text-white ring-2 ring-black shadow-lg scale-102'
-                  : 'bg-[#1c1c1e] text-white hover:bg-black'
-              }`}
+              className="w-full py-3 px-6 rounded-full font-medium text-[13px] tracking-wide flex items-center justify-center gap-2 cursor-pointer transition-all"
+              style={{
+                background: 'var(--text-primary)',
+                color: 'var(--bg-primary)',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+              }}
             >
               {isLoading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -829,9 +985,9 @@ function CreativeTVContent() {
         </div>
 
         {/* ------------------------------------------------------- */}
-        {/* RIGHT: ALL 6 TRIP ALBUMS (EACH LISTED EXACTLY ONCE)     */}
+        {/* RIGHT: ALL 5 TRIP ALBUMS                                */}
         {/* ------------------------------------------------------- */}
-        <div className="col-span-3 h-[64vh] flex flex-col justify-between py-0.5 [perspective:1200px] gap-2 overflow-y-auto no-scrollbar">
+        <div className="col-span-3 h-[62vh] flex flex-col justify-center py-1 gap-2.5 overflow-y-auto no-scrollbar [perspective:1200px]">
           {albums.map((album, idx) => {
             const isCardFocused = focusSection === 'rightCards' && selectedRightCardIndex === idx;
             const isFeatured = selectedRightCardIndex === idx;
@@ -846,24 +1002,36 @@ function CreativeTVContent() {
                 }}
                 onClick={() => openAlbum(album.folderId, album.title)}
                 animate={{
-                  rotateY: isCardFocused ? 0 : -13,
-                  x: isCardFocused ? -12 : 0,
-                  scale: isCardFocused ? 1.04 : 1,
+                  rotateY: isCardFocused ? 0 : -8,
+                  x: isCardFocused ? -8 : 0,
+                  scale: isCardFocused ? 1.03 : isFeatured ? 1.01 : 1,
                 }}
-                transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                transition={SPRING_CARD}
+                className="group cursor-pointer rounded-2xl p-2.5 flex items-center justify-between transition-all card-surface"
                 style={{
                   transformOrigin: 'right center',
-                }}
-                className={`group cursor-pointer rounded-2xl p-2 bg-white/85 backdrop-blur-2xl border border-white shadow-[0_10px_24px_rgba(0,0,0,0.06)] flex items-center justify-between transition-all ${
-                  isCardFocused
-                    ? 'ring-4 ring-black/90 ring-offset-2 ring-offset-[#ececee] shadow-2xl z-10'
+                  ...(isCardFocused
+                    ? {
+                        outline: '3px solid var(--focus-ring)',
+                        outlineOffset: '2px',
+                        boxShadow: 'var(--card-shadow-hover)',
+                        background: 'var(--card-bg)',
+                        border: '1px solid var(--card-border)',
+                      }
                     : isFeatured
-                    ? 'ring-2 ring-black/40 shadow-md'
-                    : 'hover:shadow-[0_16px_36px_rgba(0,0,0,0.1)]'
-                }`}
+                    ? {
+                        boxShadow: 'var(--card-shadow-hover)',
+                        outline: '2px solid var(--accent)',
+                        outlineOffset: '1px',
+                        background: 'var(--card-bg)',
+                        border: '1px solid var(--card-border)',
+                      }
+                    : {}),
+                }}
               >
-                <div className="flex items-center gap-2.5 truncate">
-                  <div className="w-11 h-9 rounded-xl overflow-hidden shadow-sm shrink-0 bg-stone-300">
+                <div className="flex items-center gap-3 truncate">
+                  {/* Album Thumbnail */}
+                  <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 skeleton">
                     <img
                       src={album.coverThumbnailUrl}
                       alt={album.title}
@@ -878,19 +1046,31 @@ function CreativeTVContent() {
                       loading="lazy"
                     />
                   </div>
+                  {/* Album Info */}
                   <div className="truncate">
-                    <h4 className="text-xs font-semibold text-[#1c1c1e] truncate group-hover:text-black">
+                    <h4
+                      className="text-[13px] font-semibold truncate"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
                       {album.title}
                     </h4>
-                    <p className="text-[10px] text-black/50 font-mono">
-                      {album.totalCount} Items
+                    <p className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                      {album.photoCount} photos · {album.videoCount} videos
                     </p>
                   </div>
                 </div>
 
-                <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center text-black/60 group-hover:bg-black group-hover:text-white transition-colors shrink-0">
-                  <Play className="w-2.5 h-2.5 fill-current ml-0.5" />
-                </div>
+                {/* Play Chevron */}
+                <motion.div
+                  whileHover={{ scale: 1.15 }}
+                  className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all"
+                  style={{
+                    background: isFeatured ? 'var(--accent)' : 'var(--accent-soft)',
+                    color: isFeatured ? 'white' : 'var(--accent-text)',
+                  }}
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </motion.div>
               </motion.div>
             );
           })}
@@ -900,106 +1080,142 @@ function CreativeTVContent() {
       {/* ========================================================= */}
       {/* 3. BOTTOM FLOATING DOCK & CONTROLS                        */}
       {/* ========================================================= */}
-      <footer className="relative z-20 flex items-center justify-between pt-2.5 border-t border-black/[0.06]">
+      <footer
+        className="relative z-20 flex items-center justify-between pt-3"
+        style={{ borderTop: '1px solid var(--separator)' }}
+      >
         {/* Left: User Profiles & Device */}
         <div className="flex items-center gap-4">
           <div className="flex items-center -space-x-2">
-            <div className="w-8 h-8 rounded-full bg-amber-400 border-2 border-white flex items-center justify-center text-xs font-bold text-black shadow-sm">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm"
+              style={{ background: 'var(--accent)', color: 'white', border: '2px solid var(--bg-primary)' }}
+            >
               👨‍👩‍👧
             </div>
-            <div className="w-8 h-8 rounded-full bg-sky-400 border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm"
+              style={{ background: '#4AADE8', color: 'white', border: '2px solid var(--bg-primary)' }}
+            >
               🏔️
             </div>
-            <button
+            <motion.button
+              whileTap={{ scale: 0.9 }}
               onClick={() => router.push('/tv/pair')}
-              className={`w-8 h-8 rounded-full bg-black/10 border-2 border-white flex items-center justify-center text-xs text-black/60 hover:bg-black hover:text-white transition-colors shadow-sm cursor-pointer ${
-                focusSection === 'dock' && dockFocusIndex === 0 ? 'ring-2 ring-black font-bold' : ''
-              }`}
+              className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+              style={{
+                background: 'var(--accent-soft)',
+                color: 'var(--text-secondary)',
+                border: '2px solid var(--bg-primary)',
+                ...(focusSection === 'dock' && dockFocusIndex === 0 ? { outline: '2px solid var(--focus-ring)' } : {}),
+              }}
               title="Pair New Device"
             >
               <Plus className="w-3.5 h-3.5" />
-            </button>
+            </motion.button>
           </div>
-          <span className="text-xs font-medium text-black/60 tracking-wide">
+          <span className="text-xs font-medium tracking-wide" style={{ color: 'var(--text-secondary)' }}>
             Living Room TV
           </span>
         </div>
 
         {/* Center: Frosted Glass Utility Pills */}
-        <div className="flex items-center gap-2 bg-white/85 backdrop-blur-2xl border border-black/[0.06] rounded-full p-1.5 shadow-sm">
-          <button
+        <div className="glass flex items-center gap-1 rounded-full p-1.5">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
             onClick={playMasterCollection}
-            className={`p-2 rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-colors cursor-pointer ${
-              focusSection === 'dock' && dockFocusIndex === 1 ? 'ring-2 ring-black bg-black/10 text-black' : ''
-            }`}
+            className="p-2.5 rounded-full cursor-pointer transition-colors"
+            style={{
+              color: focusSection === 'dock' && dockFocusIndex === 1 ? 'var(--accent)' : 'var(--text-secondary)',
+              background: focusSection === 'dock' && dockFocusIndex === 1 ? 'var(--accent-soft)' : 'transparent',
+            }}
             title="Play All 5 Trips"
           >
-            <Frame className="w-4 h-4" />
-          </button>
-          <button
+            <Compass className="w-4 h-4" />
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
             onClick={() => {
               const shuffled = [...albums].sort(() => Math.random() - 0.5);
               setAlbums(shuffled);
             }}
-            className={`p-2 rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-colors cursor-pointer ${
-              focusSection === 'dock' && dockFocusIndex === 2 ? 'ring-2 ring-black bg-black/10 text-black' : ''
-            }`}
+            className="p-2.5 rounded-full cursor-pointer transition-colors"
+            style={{
+              color: focusSection === 'dock' && dockFocusIndex === 2 ? 'var(--accent)' : 'var(--text-secondary)',
+              background: focusSection === 'dock' && dockFocusIndex === 2 ? 'var(--accent-soft)' : 'transparent',
+            }}
             title="Shuffle Collections"
           >
             <Shuffle className="w-4 h-4" />
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
             onClick={() => router.push('/tv/pair')}
-            className={`p-2 rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-colors cursor-pointer ${
-              focusSection === 'dock' && dockFocusIndex === 3 ? 'ring-2 ring-black bg-black/10 text-black' : ''
-            }`}
-            title="Settings & Pairing"
+            className="p-2.5 rounded-full cursor-pointer transition-colors"
+            style={{
+              color: focusSection === 'dock' && dockFocusIndex === 3 ? 'var(--accent)' : 'var(--text-secondary)',
+              background: focusSection === 'dock' && dockFocusIndex === 3 ? 'var(--accent-soft)' : 'transparent',
+            }}
+            title="Settings"
           >
-            <Sliders className="w-4 h-4" />
-          </button>
+            <SlidersHorizontal className="w-4 h-4" />
+          </motion.button>
         </div>
 
         {/* Right-Center: Playback Controls */}
-        <div className="flex items-center gap-3">
-          <button
+        <div className="flex items-center gap-2">
+          <motion.button
+            whileTap={{ scale: 0.85 }}
             onClick={() => {
               setSelectedAlbumIndex(prev => (prev - 1 + albums.length) % albums.length);
               setSelectedRightCardIndex(prev => (prev - 1 + albums.length) % albums.length);
             }}
-            className={`text-black/50 hover:text-black transition-colors cursor-pointer p-1 rounded-full ${
-              focusSection === 'dock' && dockFocusIndex === 4 ? 'ring-2 ring-black text-black' : ''
-            }`}
+            className="p-2 rounded-full cursor-pointer"
+            style={{
+              color: focusSection === 'dock' && dockFocusIndex === 4 ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              ...(focusSection === 'dock' && dockFocusIndex === 4 ? { outline: '2px solid var(--focus-ring)' } : {}),
+            }}
           >
             <SkipBack className="w-4 h-4" />
-          </button>
-          <button
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.88 }}
             onClick={() => {
               if (albums.length > 0) {
                 const alb = albums[selectedRightCardIndex] || albums[0];
                 openAlbum(alb.folderId, alb.title);
               }
             }}
-            className={`w-9 h-9 rounded-full bg-white shadow-sm border border-black/[0.08] flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-all cursor-pointer ${
-              focusSection === 'dock' && dockFocusIndex === 5 ? 'ring-3 ring-black shadow-md scale-105' : ''
-            }`}
+            className="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all"
+            style={{
+              background: 'var(--text-primary)',
+              color: 'var(--bg-primary)',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
+              ...(focusSection === 'dock' && dockFocusIndex === 5 ? { outline: '3px solid var(--accent)', outlineOffset: '2px' } : {}),
+            }}
           >
             <Play className="w-4 h-4 fill-current ml-0.5" />
-          </button>
-          <button
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.85 }}
             onClick={() => {
               setSelectedAlbumIndex(prev => (prev + 1) % albums.length);
               setSelectedRightCardIndex(prev => (prev + 1) % albums.length);
             }}
-            className={`text-black/50 hover:text-black transition-colors cursor-pointer p-1 rounded-full ${
-              focusSection === 'dock' && dockFocusIndex === 6 ? 'ring-2 ring-black text-black' : ''
-            }`}
+            className="p-2 rounded-full cursor-pointer"
+            style={{
+              color: focusSection === 'dock' && dockFocusIndex === 6 ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              ...(focusSection === 'dock' && dockFocusIndex === 6 ? { outline: '2px solid var(--focus-ring)' } : {}),
+            }}
           >
             <SkipForward className="w-4 h-4" />
-          </button>
+          </motion.button>
         </div>
 
         {/* Far Right: Clock */}
-        <div className="text-xs font-mono font-medium text-black/60 tracking-wider">
+        <div className="text-xs font-medium tracking-wide" style={{ color: 'var(--text-secondary)' }}>
           {timeStr || '12:48 PM'}
         </div>
       </footer>
@@ -1011,8 +1227,12 @@ export default function TVHomePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#ececee] text-black/40 flex items-center justify-center font-mono">
-          Loading DriveFrame TV...
+        <div
+          className="min-h-screen flex items-center justify-center font-mono text-sm"
+          style={{ background: 'var(--bg-primary)', color: 'var(--text-tertiary)' }}
+        >
+          <Loader2 className="w-6 h-6 animate-spin mr-3" style={{ color: 'var(--accent)' }} />
+          Loading DriveFrame TV…
         </div>
       }
     >

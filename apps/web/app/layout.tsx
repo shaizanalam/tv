@@ -21,11 +21,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="min-h-[100dvh] bg-[#09090b] text-stone-100 antialiased selection:bg-amber-400 selection:text-zinc-950">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* System-preference dark mode — applies .dark class before first paint to prevent flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const saved = localStorage.getItem('driveframe-theme');
+                if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              } catch {}
+            `,
+          }}
+        />
+      </head>
+      <body className="min-h-[100dvh] antialiased selection:bg-amber-400/30 selection:text-[var(--text-primary)]">
         {children}
       </body>
     </html>
   );
 }
-
