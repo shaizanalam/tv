@@ -5,12 +5,19 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const input = searchParams.get('folder') || '';
 
-  // Extract folder ID from URL or bare ID
+  // Extract folder ID from URL, query parameter, or bare ID
   let folderId = input.trim();
-  const match = folderId.match(/folders\/([a-zA-Z0-9_-]+)/);
-  if (match) {
-    folderId = match[1];
+  const folderMatch = folderId.match(/folders\/([a-zA-Z0-9_-]+)/);
+  const idMatch = folderId.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+
+  if (folderMatch) {
+    folderId = folderMatch[1];
+  } else if (idMatch) {
+    folderId = idMatch[1];
   }
+
+  // Strip any trailing query parameters or slashes
+  folderId = folderId.split('?')[0].split('&')[0].replace(/\/$/, '');
 
   if (!folderId) {
     return NextResponse.json({ error: 'Folder ID or URL required' }, { status: 400 });
@@ -115,3 +122,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

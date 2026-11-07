@@ -138,3 +138,4 @@ export function useSpatialNav(defaultFocusId?: string) {
     registerNode,
   };
 }
+

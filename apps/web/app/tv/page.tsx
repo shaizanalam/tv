@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Play, Sparkles, FolderHeart, Search, Loader2 } from 'lucide-react';
 import { TVNavbar } from '@/components/tv/TVNavbar';
 import { TVCard } from '@/components/tv/TVCard';
@@ -119,8 +119,9 @@ const SAMPLE_PHOTOS: DriveItem[] = [
   },
 ];
 
-export default function TVHomePage() {
+function TVContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [inSlideshow, setInSlideshow] = useState(false);
   const [activePhotos, setActivePhotos] = useState<DriveItem[]>(SAMPLE_PHOTOS);
   const [folderInput, setFolderInput] = useState('');
@@ -132,6 +133,24 @@ export default function TVHomePage() {
     setActivePhotos(photos);
     setInSlideshow(true);
   };
+
+  // Auto-play folder if passed in URL
+  useEffect(() => {
+    const folderParam = searchParams.get('folder');
+    if (folderParam) {
+      setFolderInput(folderParam);
+      setIsLoadingFolder(true);
+      fetch(`/api/drive/folder?folder=${encodeURIComponent(folderParam)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.items && data.items.length > 0) {
+            startSlideshow(data.items);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setIsLoadingFolder(false));
+    }
+  }, [searchParams]);
 
   const loadCustomFolder = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -300,5 +319,19 @@ export default function TVHomePage() {
         <div>DRIVEFRAME TV · NO DATABASE REQUIRED · ZERO CLOUD COST</div>
       </footer>
     </div>
+  );
+}
+
+export default function TVHomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#09090b] text-zinc-500 flex items-center justify-center font-mono text-lg">
+          Loading DriveFrame TV...
+        </div>
+      }
+    >
+      <TVContent />
+    </Suspense>
   );
 }

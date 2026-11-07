@@ -45,3 +45,4 @@ export function decryptToken(payload: EncryptedPayload): string {
   decrypted += decipher.final('utf8');
   return decrypted;
 }
+

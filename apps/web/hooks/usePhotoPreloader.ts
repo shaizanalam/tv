@@ -48,3 +48,4 @@ export function usePhotoPreloader(
     }
   }, [photos, currentIndex, getImageUrl]);
 }
+

@@ -53,13 +53,15 @@ export function SlideshowPlayer({
   // Slideshow timer
   useEffect(() => {
     if (!isPlaying || photos.length <= 1) return;
+    // For videos, let onEnded handle the transition to the next item
+    if (currentPhoto?.mimeType?.startsWith('video/')) return;
 
     const timer = setInterval(() => {
       nextPhoto();
     }, intervalSeconds * 1000);
 
     return () => clearInterval(timer);
-  }, [isPlaying, intervalSeconds, nextPhoto, photos.length]);
+  }, [isPlaying, intervalSeconds, nextPhoto, photos.length, currentPhoto]);
 
   // Clock in Ambient HUD
   useEffect(() => {
@@ -177,11 +179,22 @@ export function SlideshowPlayer({
           exit="exit"
           className="absolute inset-0 flex items-center justify-center p-0"
         >
-          <img
-            src={currentUrl}
-            alt={currentPhoto.name}
-            className="w-full h-full object-contain pointer-events-none drop-shadow-2xl"
-          />
+          {currentPhoto.mimeType?.startsWith('video/') ? (
+            <video
+              src={currentUrl}
+              autoPlay
+              controls={false}
+              playsInline
+              onEnded={nextPhoto}
+              className="w-full h-full object-contain drop-shadow-2xl"
+            />
+          ) : (
+            <img
+              src={currentUrl}
+              alt={currentPhoto.name}
+              className="w-full h-full object-contain pointer-events-none drop-shadow-2xl"
+            />
+          )}
         </motion.div>
       </AnimatePresence>
 
