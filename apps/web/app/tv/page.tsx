@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Play, Sparkles, FolderHeart, Search, Loader2, ArrowLeft } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, Search, Loader2 } from 'lucide-react';
 import { TVNavbar } from '@/components/tv/TVNavbar';
 import { TVCard } from '@/components/tv/TVCard';
 import { SlideshowPlayer } from '@/components/slideshow/SlideshowPlayer';
@@ -23,33 +24,26 @@ function TVContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [mainFolderTitle, setMainFolderTitle] = useState('Trip');
   const [albums, setAlbums] = useState<AlbumFolder[]>([]);
+  const [selectedAlbumIndex, setSelectedAlbumIndex] = useState(0);
   const [inSlideshow, setInSlideshow] = useState(false);
   const [activePhotos, setActivePhotos] = useState<DriveItem[]>([]);
   const [folderInput, setFolderInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [currentAlbumTitle, setCurrentAlbumTitle] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
-  const { activeFocusId, registerNode, setFocus } = useSpatialNav('hero-play');
+  const { activeFocusId, registerNode } = useSpatialNav('hero-play');
 
-  // Load Main Folder & Discover All Subfolders
+  // Load Main Folder & Subfolders
   const fetchMainFolder = useCallback(async (folderTarget: string) => {
     setIsLoading(true);
     try {
       const res = await fetch(`/api/drive/folder?folder=${encodeURIComponent(folderTarget)}`);
       const data = await res.json();
 
-      if (data.title) {
-        setMainFolderTitle(data.title);
-      }
-
       if (data.subfolders && data.subfolders.length > 0) {
         setAlbums(data.subfolders);
-      }
-
-      // If the folder directly contains photos/videos (no subfolders)
-      if (data.items && data.items.length > 0) {
+      } else if (data.items && data.items.length > 0) {
         setActivePhotos(data.items);
       }
     } catch (err) {
@@ -59,17 +53,15 @@ function TVContent() {
     }
   }, []);
 
-  // On Mount: Load user's trip folder or query folder
   useEffect(() => {
     const target = searchParams.get('folder') || DEFAULT_MAIN_FOLDER;
     setFolderInput(target);
     fetchMainFolder(target);
   }, [searchParams, fetchMainFolder]);
 
-  // Open a specific Subfolder and play its photos & videos
-  const openAlbum = async (subfolderId: string, albumTitle: string) => {
+  // Open Album and play
+  const openAlbum = async (subfolderId: string) => {
     setIsLoading(true);
-    setCurrentAlbumTitle(albumTitle);
     try {
       const res = await fetch(`/api/drive/folder?folder=${encodeURIComponent(subfolderId)}`);
       const data = await res.json();
@@ -78,17 +70,13 @@ function TVContent() {
         setInSlideshow(true);
       }
     } catch (err) {
-      console.error('Failed to load subfolder:', err);
+      console.error('Failed to load album items:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCustomFolderSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!folderInput.trim()) return;
-    fetchMainFolder(folderInput.trim());
-  };
+  const activeAlbum = albums[selectedAlbumIndex] || albums[0];
 
   if (inSlideshow) {
     return (
@@ -102,151 +90,156 @@ function TVContent() {
   }
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#09090b] text-stone-100 p-8 lg:p-14 select-none overflow-x-hidden">
-      {/* 10-Foot Navigation Bar */}
-      <TVNavbar title="DriveFrame TV" subtitle={`${mainFolderTitle} Collection`} activeSection="Albums" />
+    <div className="relative min-h-[100dvh] w-full bg-[#070709] text-white p-8 lg:p-14 select-none overflow-x-hidden">
+      {/* Dynamic Ambient Backdrop Blur (Apple TV Top Shelf style) */}
+      {activeAlbum?.coverThumbnailUrl && (
+        <div
+          className="absolute inset-0 bg-cover bg-center filter blur-[120px] opacity-25 scale-120 transition-all duration-1000 pointer-events-none"
+          style={{ backgroundImage: `url(${activeAlbum.coverThumbnailUrl})` }}
+        />
+      )}
 
-      {/* Row 0: Quick Direct Folder Search / Input Bar */}
-      <section className="mb-10">
-        <form
-          onSubmit={handleCustomFolderSubmit}
-          className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-3 flex items-center gap-3 shadow-xl max-w-4xl"
-        >
-          <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-amber-400 shrink-0">
-            <Search className="w-5 h-5" />
-          </div>
-          <input
-            type="text"
-            value={folderInput}
-            onChange={e => setFolderInput(e.target.value)}
-            placeholder="Paste any Google Drive Folder Link or ID..."
-            className="flex-1 bg-transparent border-none text-base md:text-lg text-stone-200 placeholder:text-zinc-500 focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="px-6 py-2.5 rounded-xl bg-amber-400 text-zinc-950 font-semibold text-sm hover:bg-amber-300 transition-colors flex items-center gap-2"
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Play className="w-4 h-4 fill-zinc-950" />
-            )}
-            <span>Load Folder</span>
-          </button>
-        </form>
-      </section>
+      {/* Floating Header */}
+      <div className="relative z-10">
+        <TVNavbar title="DriveFrame" subtitle="Family Library" />
+      </div>
 
-      {/* Row 1: Quick Action Banner */}
-      <section className="mb-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Card 0,0: Play Slideshow */}
-          <div
-            id="hero-play"
-            onClick={() => {
-              if (albums.length > 0) {
-                openAlbum(albums[0].folderId, albums[0].title);
-              }
-            }}
-            className={`col-span-2 relative cursor-pointer rounded-3xl p-8 overflow-hidden transition-all duration-300 ease-out ${
-              activeFocusId === 'hero-play'
-                ? 'ring-4 ring-amber-400 shadow-[0_0_50px_rgba(251,191,36,0.4)] scale-[1.02] bg-zinc-900'
-                : 'border border-zinc-800 bg-zinc-950/80 hover:border-zinc-700'
-            }`}
-          >
-            <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative z-10 flex flex-col justify-between h-48">
-              <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest text-amber-400 uppercase">
-                <Sparkles className="w-4 h-4" />
-                <span>Live Google Drive Connected</span>
-              </div>
+      {/* Hero Cover Shelf */}
+      <section className="relative z-10 my-6">
+        <div className="relative h-[48vh] rounded-3xl overflow-hidden border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.9)] bg-zinc-950">
+          {activeAlbum?.coverThumbnailUrl && (
+            <motion.img
+              key={activeAlbum.id}
+              initial={{ opacity: 0, scale: 1.05 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              src={activeAlbum.coverThumbnailUrl}
+              alt={activeAlbum.title}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          )}
 
-              <div>
-                <h2 className="text-3xl lg:text-4xl font-light tracking-tight text-stone-100">
-                  {mainFolderTitle} Photo & Video Library
-                </h2>
-                <p className="text-zinc-400 text-base mt-2">
-                  {albums.length} Subfolders Discovered · Photos & Videos stream directly from Google Drive.
-                </p>
-              </div>
+          {/* Liquid Glass Bottom Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#070709] via-black/40 to-transparent" />
 
-              <div className="inline-flex items-center gap-3 text-amber-400 font-medium text-lg">
-                <div className="w-10 h-10 rounded-full bg-amber-400 text-zinc-950 flex items-center justify-center shadow-lg">
-                  <Play className="w-5 h-5 fill-zinc-950 ml-0.5" />
-                </div>
-                <span>Press OK to Play {albums[0]?.title || 'Slideshow'}</span>
-              </div>
+          {/* Shelf Content */}
+          <div className="absolute bottom-10 left-10 right-10 flex items-end justify-between">
+            <div className="space-y-2 max-w-xl">
+              <span className="text-xs uppercase tracking-widest text-amber-400 font-mono">
+                Featured Album
+              </span>
+              <h1 className="text-4xl lg:text-6xl font-semibold tracking-tight text-white drop-shadow-lg">
+                {activeAlbum?.title || 'Trip Memories'}
+              </h1>
             </div>
-          </div>
 
-          {/* Card 0,1: TV Pairing */}
-          <div
-            id="hero-pair"
-            onClick={() => router.push('/tv/pair')}
-            className={`cursor-pointer rounded-3xl p-8 transition-all duration-300 ease-out flex flex-col justify-between ${
-              activeFocusId === 'hero-pair'
-                ? 'ring-4 ring-amber-400 shadow-[0_0_40px_rgba(251,191,36,0.4)] scale-[1.02] bg-zinc-900'
-                : 'border border-zinc-800 bg-zinc-950/80 hover:border-zinc-700'
-            }`}
-          >
-            <div>
-              <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-300 mb-4">
-                <FolderHeart className="w-5 h-5 text-amber-400" />
-              </div>
-              <h3 className="text-2xl font-medium text-stone-100">Zero-Password Pairing</h3>
-              <p className="text-sm text-zinc-400 mt-2">
-                Pair new phones or family members via 6-digit code.
-              </p>
-            </div>
-            <div className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
-              Pair Status: Active
+            <div className="flex items-center gap-4">
+              <button
+                id="hero-play"
+                onClick={() => {
+                  if (activeAlbum) {
+                    openAlbum(activeAlbum.folderId);
+                  }
+                }}
+                className={`flex items-center gap-3 px-8 py-4 rounded-full font-semibold text-base transition-all duration-200 outline-none ${
+                  activeFocusId === 'hero-play'
+                    ? 'bg-white text-black scale-105 shadow-[0_0_35px_rgba(255,255,255,0.4)]'
+                    : 'bg-white/90 text-black hover:bg-white'
+                }`}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Play className="w-5 h-5 fill-current" />
+                )}
+                <span>Play Slideshow</span>
+              </button>
+
+              <button
+                onClick={() => setShowSearch(s => !s)}
+                className="p-4 rounded-full bg-black/40 backdrop-blur-2xl border border-white/15 text-white hover:bg-white/10 transition-colors"
+                title="Change Folder"
+              >
+                <Search className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Row 2: Subfolder Albums */}
-      <section className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl lg:text-3xl font-light tracking-tight text-stone-200">
-            {mainFolderTitle} Subfolder Albums
-          </h2>
-          <span className="text-sm font-mono text-zinc-400">
-            {albums.length} Collections Ready
-          </span>
-        </div>
+      {/* Optional Search / Custom Folder Drawer */}
+      <AnimatePresence>
+        {showSearch && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="relative z-10 mb-8 max-w-2xl"
+          >
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                if (folderInput.trim()) {
+                  fetchMainFolder(folderInput.trim());
+                  setShowSearch(false);
+                }
+              }}
+              className="flex items-center gap-3 p-2 rounded-2xl bg-white/[0.08] backdrop-blur-2xl border border-white/15"
+            >
+              <input
+                type="text"
+                value={folderInput}
+                onChange={e => setFolderInput(e.target.value)}
+                placeholder="Paste Google Drive folder link or ID..."
+                className="flex-1 bg-transparent border-none text-white px-3 focus:outline-none text-sm placeholder:text-white/40"
+              />
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl bg-white text-black text-xs font-semibold hover:bg-white/90"
+              >
+                Load
+              </button>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center p-20 text-zinc-500 font-mono text-lg">
-            <Loader2 className="w-6 h-6 animate-spin mr-3 text-amber-400" />
-            <span>Scanning Google Drive folder...</span>
+      {/* Albums Shelf Row */}
+      <section className="relative z-10 space-y-4">
+        <h2 className="text-xl font-medium tracking-tight text-white/90">
+          Albums
+        </h2>
+
+        {isLoading && albums.length === 0 ? (
+          <div className="flex items-center justify-center p-16 text-white/40 font-light">
+            <Loader2 className="w-6 h-6 animate-spin mr-3 text-white" />
+            <span>Loading albums...</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
             {albums.map((album, idx) => (
-              <TVCard
+              <div
                 key={album.id}
-                id={`album-${album.id}`}
-                row={1}
-                col={idx}
-                title={album.title}
-                subtitle="Google Drive Album"
-                badge={idx === 0 ? 'Primary' : undefined}
-                imageUrl={album.coverThumbnailUrl}
-                isActiveFocus={activeFocusId === `album-${album.id}`}
-                onRegister={registerNode}
-                onSelect={() => openAlbum(album.folderId, album.title)}
-              />
+                onMouseEnter={() => setSelectedAlbumIndex(idx)}
+              >
+                <TVCard
+                  id={`album-${album.id}`}
+                  row={1}
+                  col={idx}
+                  title={album.title}
+                  imageUrl={album.coverThumbnailUrl}
+                  isActiveFocus={activeFocusId === `album-${album.id}`}
+                  onRegister={registerNode}
+                  onSelect={() => {
+                    setSelectedAlbumIndex(idx);
+                    openAlbum(album.folderId);
+                  }}
+                />
+              </div>
             ))}
           </div>
         )}
       </section>
-
-      {/* Footer D-Pad Helper */}
-      <footer className="mt-16 pt-8 border-t border-zinc-800/60 flex items-center justify-between text-xs font-mono text-zinc-400">
-        <div>USE REMOTE ARROWS TO NAVIGATE · PRESS ENTER/OK TO PLAY</div>
-        <div>DRIVEFRAME TV · NO DATABASE REQUIRED · DIRECT GOOGLE DRIVE</div>
-      </footer>
     </div>
   );
 }
@@ -255,8 +248,8 @@ export default function TVHomePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#09090b] text-zinc-500 flex items-center justify-center font-mono text-lg">
-          Loading DriveFrame TV...
+        <div className="min-h-screen bg-[#070709] text-white/40 flex items-center justify-center font-light">
+          Loading...
         </div>
       }
     >

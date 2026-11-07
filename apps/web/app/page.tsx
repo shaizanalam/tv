@@ -3,170 +3,173 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Tv, HardDrive, Smartphone, Sparkles, ArrowRight, ShieldCheck, Zap, Search, Play } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Tv, Play, ArrowRight, Search } from 'lucide-react';
+
+const FEATURED_ALBUMS = [
+  {
+    title: 'Dubai 2025',
+    id: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
+    cover: 'https://lh3.googleusercontent.com/d/1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz=s1000',
+    type: '50 Photos & Videos',
+  },
+  {
+    title: 'Ajmer Agra 25',
+    id: '17rjsvO8qP2dAime91juLLN1q68ADloZS',
+    cover: 'https://lh3.googleusercontent.com/d/1GDyj4qioexLHWgWOow3johLzVJrt7DBi=s1000',
+    type: '50 Photos',
+  },
+  {
+    title: 'Meccah & Madina',
+    id: '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs',
+    cover: 'https://lh3.googleusercontent.com/d/1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0=s1000',
+    type: 'Family Journey',
+  },
+  {
+    title: 'GoPro-Exports',
+    id: '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp',
+    cover: 'https://lh3.googleusercontent.com/d/1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z=s1000',
+    type: 'Action Videos',
+  },
+  {
+    title: 'Pachmari',
+    id: '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC',
+    cover: 'https://lh3.googleusercontent.com/d/17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91=s1000',
+    type: 'Nature & Hills',
+  },
+];
 
 export default function HomePage() {
   const router = useRouter();
-  const [driveFolderInput, setDriveFolderInput] = useState('');
+  const [folderInput, setFolderInput] = useState('');
 
-  const handleOpenFolder = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!driveFolderInput.trim()) {
+  const handleLaunch = (folderId?: string) => {
+    if (folderId) {
+      router.push(`/tv?folder=${encodeURIComponent(folderId)}`);
+    } else if (folderInput.trim()) {
+      router.push(`/tv?folder=${encodeURIComponent(folderInput.trim())}`);
+    } else {
       router.push('/tv');
-      return;
     }
-    router.push(`/tv?folder=${encodeURIComponent(driveFolderInput.trim())}`);
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#09090b] text-stone-100 selection:bg-amber-400 selection:text-zinc-950">
-      {/* Top Navigation */}
-      <nav className="w-full max-w-7xl mx-auto px-6 lg:px-12 py-8 flex items-center justify-between border-b border-zinc-800/60">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-            <Tv className="w-5 h-5" />
+    <div className="min-h-[100dvh] bg-[#070709] text-white selection:bg-white selection:text-black flex flex-col justify-between">
+      {/* Apple Minimalist Glass Navbar */}
+      <nav className="w-full max-w-7xl mx-auto px-6 lg:px-12 py-8 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/15 flex items-center justify-center transition-transform group-hover:scale-105">
+            <Tv className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-semibold tracking-tight text-stone-100">
-            DriveFrame TV
+          <span className="text-xl font-semibold tracking-tight text-white">
+            DriveFrame
           </span>
-        </div>
+        </Link>
 
-        <div className="flex items-center gap-4">
-          <Link
-            href="/tv/pair"
-            className="text-sm font-medium text-zinc-400 hover:text-stone-100 transition-colors duration-200"
-          >
-            Pair TV
-          </Link>
+        <div className="flex items-center gap-3">
           <Link
             href="/tv"
-            className="px-5 py-2.5 rounded-full text-sm font-semibold bg-amber-400 text-zinc-950 hover:bg-amber-300 transition-colors duration-200 shadow-sm"
+            className="px-6 py-2.5 rounded-full text-sm font-semibold bg-white text-black hover:bg-white/90 transition-all duration-200 shadow-lg"
           >
-            Launch 1080p TV
+            Open TV Interface
           </Link>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <header className="w-full max-w-7xl mx-auto px-6 lg:px-12 pt-14 pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          {/* Left Column: Hero Text */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-300 text-xs font-mono uppercase tracking-widest">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>No Database Needed · Direct Google Drive</span>
+      {/* Main Showcase Hero */}
+      <main className="w-full max-w-6xl mx-auto px-6 lg:px-12 py-12 flex-1 flex flex-col justify-center text-center space-y-10">
+        <div className="space-y-4 max-w-3xl mx-auto">
+          <motion.h1
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="text-5xl sm:text-7xl font-semibold tracking-tight text-white leading-tight"
+          >
+            Your memories, on the big screen.
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
+            className="text-lg sm:text-xl text-white/60 font-light"
+          >
+            A private television gallery for your Google Drive family photos and videos.
+          </motion.p>
+        </div>
+
+        {/* Minimalist Liquid Glass Input Pill */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2, ease: 'easeOut' }}
+          className="max-w-xl mx-auto w-full"
+        >
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              handleLaunch();
+            }}
+            className="flex items-center gap-2 p-2 rounded-full bg-white/[0.06] backdrop-blur-2xl border border-white/15 shadow-2xl transition-all focus-within:border-white/40 focus-within:ring-2 focus-within:ring-white/20"
+          >
+            <div className="pl-4 text-white/40">
+              <Search className="w-4 h-4" />
             </div>
-
-            <h1 className="text-5xl lg:text-7xl font-light tracking-tight text-stone-100 leading-[1.08]">
-              Paste any Google Drive folder. Enjoy on your TV.
-            </h1>
-
-            <p className="text-lg lg:text-xl text-zinc-400 font-normal leading-relaxed max-w-[54ch]">
-              No complicated database setup. Just paste your Google Drive folder link to instantly stream family photos and videos with zero lag and cinematic TV slideshow transitions.
-            </p>
-
-            {/* Direct Google Drive Folder Input */}
-            <form
-              onSubmit={handleOpenFolder}
-              className="p-2 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center gap-2 shadow-2xl max-w-xl"
+            <input
+              type="text"
+              value={folderInput}
+              onChange={e => setFolderInput(e.target.value)}
+              placeholder="Paste Google Drive folder link..."
+              className="flex-1 bg-transparent border-none text-white text-sm placeholder:text-white/40 focus:outline-none px-2"
+            />
+            <button
+              type="submit"
+              className="px-6 py-3 rounded-full bg-white text-black font-semibold text-xs tracking-wide hover:bg-white/90 transition-transform active:scale-95 flex items-center gap-1.5 shrink-0"
             >
-              <div className="pl-3 text-zinc-500">
-                <Search className="w-5 h-5 text-amber-400" />
-              </div>
-              <input
-                type="text"
-                value={driveFolderInput}
-                onChange={e => setDriveFolderInput(e.target.value)}
-                placeholder="Paste Google Drive folder link or ID..."
-                className="flex-1 bg-transparent border-none text-stone-100 text-sm md:text-base placeholder:text-zinc-500 focus:outline-none px-2"
-              />
-              <button
-                type="submit"
-                className="px-6 py-3 rounded-xl bg-amber-400 text-zinc-950 font-semibold text-sm hover:bg-amber-300 transition-colors flex items-center gap-2 shrink-0"
+              <span>Play</span>
+              <Play className="w-3.5 h-3.5 fill-current" />
+            </button>
+          </form>
+        </motion.div>
+
+        {/* Real Album Showcase (From user's Drive) */}
+        <div className="pt-8 space-y-4">
+          <div className="text-xs uppercase tracking-widest text-white/40 font-mono">
+            Featured Collections
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {FEATURED_ALBUMS.map(album => (
+              <motion.div
+                key={album.id}
+                whileHover={{ scale: 1.04, y: -4 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleLaunch(album.id)}
+                className="group cursor-pointer rounded-2xl overflow-hidden border border-white/10 bg-zinc-950 relative aspect-[16/11] shadow-xl text-left"
               >
-                <Play className="w-4 h-4 fill-zinc-950" />
-                <span>Play on TV</span>
-              </button>
-            </form>
-
-            <div className="flex items-center gap-6 pt-2 text-xs font-mono text-zinc-400">
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" /> 100% Free Tier
-              </span>
-              <span>·</span>
-              <span>Works on JioFiber STB Browser</span>
-              <span>·</span>
-              <span>Zero Cloud Storage Cost</span>
-            </div>
-          </div>
-
-          {/* Right Column: Visual TV Preview */}
-          <div className="lg:col-span-5 relative">
-            <div className="relative rounded-3xl p-3 bg-zinc-900/90 border-2 border-zinc-800 shadow-2xl">
-              <div className="relative rounded-2xl overflow-hidden aspect-[16/10] bg-zinc-950">
                 <img
-                  src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&q=80"
-                  alt="DriveFrame Television Ambient Preview"
-                  className="w-full h-full object-cover"
+                  src={album.cover}
+                  alt={album.title}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent" />
-                <div className="absolute bottom-5 left-5 right-5 flex items-center justify-between text-stone-100">
-                  <div>
-                    <p className="text-base font-medium">Alpine Sunsets</p>
-                    <p className="text-xs text-zinc-400">Family Trips Album · 48 Photos</p>
-                  </div>
-                  <div className="px-2.5 py-1 rounded-md bg-amber-400 text-zinc-950 text-xs font-mono font-bold">
-                    1080p STB
-                  </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                <div className="absolute bottom-3 left-3 right-3">
+                  <p className="text-sm font-semibold text-white drop-shadow truncate">
+                    {album.title}
+                  </p>
+                  <p className="text-[11px] text-white/60 font-light truncate">
+                    {album.type}
+                  </p>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            ))}
           </div>
         </div>
-      </header>
+      </main>
 
-      {/* Feature Bento Grid */}
-      <section className="w-full max-w-7xl mx-auto px-6 lg:px-12 py-16 border-t border-zinc-800/60">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="p-8 rounded-3xl bg-zinc-900/50 border border-zinc-800 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center text-amber-400">
-              <HardDrive className="w-6 h-6" />
-            </div>
-            <h3 className="text-2xl font-light text-stone-100">No Database Needed</h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              Google Drive is already your database and file manager. DriveFrame reads directly from Drive so you don't have to configure or pay for database servers.
-            </p>
-          </div>
-
-          <div className="p-8 rounded-3xl bg-zinc-900/50 border border-zinc-800 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center text-amber-400">
-              <Smartphone className="w-6 h-6" />
-            </div>
-            <h3 className="text-2xl font-light text-stone-100">Zero Password Pairing</h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              Never type passwords using a slow TV remote. Open DriveFrame on your TV and scan the QR code with your phone.
-            </p>
-          </div>
-
-          <div className="p-8 rounded-3xl bg-zinc-900/50 border border-zinc-800 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center text-amber-400">
-              <Zap className="w-6 h-6" />
-            </div>
-            <h3 className="text-2xl font-light text-stone-100">Zero-Lag Memory Buffer</h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              The next 2 photos preload in the TV's local memory before the transition triggers. No waiting, no loading spinners, no lag.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="w-full max-w-7xl mx-auto px-6 lg:px-12 py-12 border-t border-zinc-800/60 flex flex-col md:flex-row items-center justify-between text-xs text-zinc-500 gap-4">
-        <p>DriveFrame TV · 100% Free · Open Source Television Digital Frame</p>
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>Zero Server Storage · Direct Google Drive Streaming</span>
-        </div>
+      {/* Clean Apple Minimal Footer */}
+      <footer className="w-full max-w-6xl mx-auto px-6 lg:px-12 py-8 flex items-center justify-between text-xs text-white/40 border-t border-white/[0.06]">
+        <span>DriveFrame</span>
+        <span className="font-mono">1080p Television Gallery</span>
       </footer>
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { TVFocusableNode } from '@/lib/types';
 
 interface TVCardProps {
@@ -9,7 +10,6 @@ interface TVCardProps {
   col: number;
   title: string;
   subtitle?: string;
-  badge?: string;
   imageUrl?: string | null;
   isActiveFocus?: boolean;
   onRegister: (node: TVFocusableNode) => () => void;
@@ -24,7 +24,6 @@ export function TVCard({
   col,
   title,
   subtitle,
-  badge,
   imageUrl,
   isActiveFocus,
   onRegister,
@@ -48,54 +47,52 @@ export function TVCard({
   }, [id, row, col, onRegister, onSelect, onBack]);
 
   return (
-    <div
+    <motion.div
       ref={elementRef}
       tabIndex={-1}
       onClick={onSelect}
-      className={`relative group cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 ease-out outline-none select-none ${
+      whileHover={{ scale: 1.03, y: -4 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      className={`group relative cursor-pointer rounded-2xl overflow-hidden select-none outline-none transition-all duration-300 ${
         isActiveFocus
-          ? 'scale-105 z-20 ring-4 ring-amber-400 shadow-[0_0_45px_rgba(251,191,36,0.45)] brightness-110'
-          : 'scale-100 opacity-85 hover:opacity-100 border border-zinc-800/80 bg-zinc-900/60'
+          ? 'scale-105 -translate-y-2 z-20 ring-2 ring-white shadow-[0_25px_50px_rgba(0,0,0,0.8),0_0_35px_rgba(255,255,255,0.2)]'
+          : 'scale-100 opacity-85 hover:opacity-100 border border-white/10 shadow-lg'
       } ${className}`}
     >
-      {/* Background Image / Placeholder */}
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-zinc-900">
+      {/* 16:10 Cinematic Cover Image */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-zinc-950">
         {imageUrl ? (
           <img
             src={imageUrl}
             alt={title}
-            className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-108"
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-900 to-zinc-950">
-            <span className="text-zinc-600 text-3xl font-light">DriveFrame</span>
+          <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+            <span className="text-zinc-600 text-xl font-light">Album</span>
           </div>
         )}
 
-        {/* Ambient Dark Gradient Scrim for Legibility */}
-        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
+        {/* Ambient Bottom Scrim for Title Legibility */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none" />
 
-        {/* Optional Badge */}
-        {badge && (
-          <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-medium tracking-wide uppercase bg-amber-400/90 text-zinc-950 backdrop-blur-md shadow-sm">
-            {badge}
-          </div>
-        )}
-      </div>
+        {/* Specular Liquid Glass Top Edge */}
+        <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none" />
 
-      {/* 10-Foot Readable Typography */}
-      <div className="p-5 bg-zinc-950/90 backdrop-blur-sm border-t border-zinc-800/40">
-        <h3 className="text-xl md:text-2xl font-medium tracking-tight text-stone-100 truncate">
-          {title}
-        </h3>
-        {subtitle && (
-          <p className="text-sm md:text-base text-zinc-400 font-normal mt-1 truncate">
-            {subtitle}
-          </p>
-        )}
+        {/* Title Content Overlay */}
+        <div className="absolute bottom-0 inset-x-0 p-5">
+          <h3 className="text-xl font-semibold tracking-tight text-white drop-shadow-md truncate">
+            {title}
+          </h3>
+          {subtitle && (
+            <p className="text-xs text-white/70 font-normal mt-0.5 tracking-wide drop-shadow truncate">
+              {subtitle}
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
-
