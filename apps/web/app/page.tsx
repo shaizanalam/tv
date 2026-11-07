@@ -10,7 +10,7 @@ const FEATURED_ALBUMS = [
   {
     title: 'Dubai 2025',
     id: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
-    cover: '/api/drive/image?id=1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz',
+    cover: '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv',
     type: '351 Photos & Videos',
   },
   {

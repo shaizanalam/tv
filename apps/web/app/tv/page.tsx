@@ -24,12 +24,20 @@ import {
 import { SlideshowPlayer } from '@/components/slideshow/SlideshowPlayer';
 import { DriveItem } from '@/lib/types';
 
+export interface HighlightShot {
+  url: string;
+  tag: string;
+  title: string;
+  subtitle: string;
+}
+
 export interface AlbumFolder {
   id: string;
   folderId: string;
   title: string;
   subtitle: string;
   coverThumbnailUrl: string;
+  highlightShots: HighlightShot[];
   photoCount: number;
   videoCount: number;
   totalCount: number;
@@ -37,17 +45,37 @@ export interface AlbumFolder {
 
 const DEFAULT_MAIN_FOLDER = '1qCPS0mAatpr5Yil7t2Zc7hcO9Lbt2ufi';
 
-// The 6 official verified folders in the user's shared Google Drive
+// The 6 official verified collections in the user's Google Drive with authentic highlight shots
 const ALL_SIX_COLLECTIONS: AlbumFolder[] = [
   {
     id: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
     folderId: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
     title: 'Dubai 2025',
     subtitle: 'Desert & Skyline Memories',
-    coverThumbnailUrl: '/api/drive/image?id=1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz',
+    coverThumbnailUrl: '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv',
     totalCount: 351,
     photoCount: 337,
     videoCount: 14,
+    highlightShots: [
+      {
+        url: '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv',
+        tag: 'DUBAI MALL',
+        title: 'Dubai Mall Emaar',
+        subtitle: 'City Center & Palm Boulevard',
+      },
+      {
+        url: '/api/drive/image?id=1hGR38jxsBQrAbIdQmG8KqKnP8pN2Nilq',
+        tag: 'ARCHITECTURE',
+        title: 'Futuristic Skyline',
+        subtitle: 'Geometric Glass & Palms',
+      },
+      {
+        url: '/api/drive/image?id=1rNz-ddmnzBBGRUY1V1Xoef1Gm7Z4QZ_n',
+        tag: 'CITY LIGHTS',
+        title: 'Evening Boulevard',
+        subtitle: 'Golden Hour Memories',
+      },
+    ],
   },
   {
     id: '17rjsvO8qP2dAime91juLLN1q68ADloZS',
@@ -58,6 +86,26 @@ const ALL_SIX_COLLECTIONS: AlbumFolder[] = [
     totalCount: 404,
     photoCount: 326,
     videoCount: 78,
+    highlightShots: [
+      {
+        url: '/api/drive/image?id=1GDyj4qioexLHWgWOow3johLzVJrt7DBi',
+        tag: 'ROADTRIP',
+        title: 'Expressway Highway',
+        subtitle: 'Family Drive to the Taj',
+      },
+      {
+        url: '/api/drive/image?id=1Ul1iyrpdoV7xUvy9G-t1aG9otBu2V12R',
+        tag: 'HERITAGE',
+        title: 'Ajmer Sharif Dargah',
+        subtitle: 'Courtyard & Historic Dome',
+      },
+      {
+        url: '/api/drive/image?id=12er1qFhLNpVuLyltGHlaG8AeulPRKhNn',
+        tag: 'MUGHAL PALACE',
+        title: 'Agra Fort Views',
+        subtitle: 'Red Sandstone Pavilions',
+      },
+    ],
   },
   {
     id: '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs',
@@ -68,6 +116,26 @@ const ALL_SIX_COLLECTIONS: AlbumFolder[] = [
     totalCount: 593,
     photoCount: 561,
     videoCount: 32,
+    highlightShots: [
+      {
+        url: '/api/drive/image?id=1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0',
+        tag: 'IHRAM GARMENTS',
+        title: 'Holy Pilgrimage',
+        subtitle: 'Family Departure in White Ihram',
+      },
+      {
+        url: '/api/drive/image?id=1SYevfhMSNcnJp5Kx-mRfcePA2pS5HQqQ',
+        tag: 'HOLY MOSQUE',
+        title: 'Sanctuary of Makkah',
+        subtitle: 'Spiritual Peace & Prayers',
+      },
+      {
+        url: '/api/drive/image?id=15-rV7xGt9IWRIhA7FPSKCs2UATsyk-Ma',
+        tag: 'MADINA CITY',
+        title: 'Streets of Madinah',
+        subtitle: 'Family Gathering & Peace',
+      },
+    ],
   },
   {
     id: '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp',
@@ -78,6 +146,26 @@ const ALL_SIX_COLLECTIONS: AlbumFolder[] = [
     totalCount: 259,
     photoCount: 132,
     videoCount: 127,
+    highlightShots: [
+      {
+        url: '/api/drive/image?id=1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z',
+        tag: 'AIRPORT VIEW',
+        title: 'Runway Flight Deck',
+        subtitle: 'Watching the Airplanes',
+      },
+      {
+        url: '/api/drive/image?id=1qWfYQ3RC3CUd7kDqXsUqDy7Lv8kOBm1a',
+        tag: 'GOPRO 4K',
+        title: 'Wide Angle Action',
+        subtitle: 'Cinematic Travel Reels',
+      },
+      {
+        url: '/api/drive/image?id=1DOqWLmLHH1-MfMTN7riOl7_IidSkx5NQ',
+        tag: 'HIGHLIGHTS',
+        title: 'Motion & Adventures',
+        subtitle: 'Dynamic Travel Clips',
+      },
+    ],
   },
   {
     id: '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC',
@@ -88,6 +176,26 @@ const ALL_SIX_COLLECTIONS: AlbumFolder[] = [
     totalCount: 292,
     photoCount: 222,
     videoCount: 70,
+    highlightShots: [
+      {
+        url: '/api/drive/image?id=17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91',
+        tag: 'HILL RESORT',
+        title: 'Heritage Bungalow',
+        subtitle: 'Queen of Satpura Greens',
+      },
+      {
+        url: '/api/drive/image?id=1q3f6-_peYW3KjdG0WRnhz0hrnpfgofH2',
+        tag: 'MOUNTAIN VALLEY',
+        title: 'Valley Vistas',
+        subtitle: 'Pine Mist & Escarpments',
+      },
+      {
+        url: '/api/drive/image?id=16jw0tKCVHKxbiLs-mErs7Qtm20DeDyIi',
+        tag: 'PINE TRAILS',
+        title: 'Forest Footpaths',
+        subtitle: 'Nature Walks & Waterfalls',
+      },
+    ],
   },
   {
     id: '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu',
@@ -98,10 +206,30 @@ const ALL_SIX_COLLECTIONS: AlbumFolder[] = [
     totalCount: 48,
     photoCount: 48,
     videoCount: 0,
+    highlightShots: [
+      {
+        url: '/api/drive/image?id=1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC',
+        tag: 'TRADITIONAL',
+        title: 'Himalayan Portrait',
+        subtitle: 'Classic Riverbank Memory',
+      },
+      {
+        url: '/api/drive/image?id=17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91',
+        tag: 'FAMILY TOURS',
+        title: 'Heritage Moments',
+        subtitle: 'Treasured Family Days',
+      },
+      {
+        url: '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv',
+        tag: 'CITY EXPEDITIONS',
+        title: 'Global Adventures',
+        subtitle: 'Enduring Memories',
+      },
+    ],
   },
 ];
 
-const FALLBACK_COVER = '/api/drive/image?id=1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz';
+const FALLBACK_COVER = '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv';
 
 type FocusSection = 'navTabs' | 'pills' | 'slats' | 'arch' | 'rightCards' | 'dock' | 'search';
 
@@ -153,7 +281,7 @@ function CreativeTVContent() {
       const res = await fetch(`/api/drive/folder?folder=${encodeURIComponent(targetId)}`);
       const data = await res.json();
       if (data.subfolders && data.subfolders.length > 0) {
-        // Filter and merge verified trips
+        // Filter and merge verified trips while keeping our curated high-res highlight shots
         const matched = ALL_SIX_COLLECTIONS.map(trip => {
           const found = data.subfolders.find((s: AlbumFolder) => s.folderId === trip.folderId);
           return found
@@ -161,7 +289,8 @@ function CreativeTVContent() {
                 ...trip,
                 ...found,
                 subtitle: trip.subtitle,
-                coverThumbnailUrl: trip.coverThumbnailUrl || found.coverThumbnailUrl,
+                coverThumbnailUrl: trip.coverThumbnailUrl,
+                highlightShots: trip.highlightShots,
               }
             : trip;
         });
@@ -248,6 +377,10 @@ function CreativeTVContent() {
     }
   };
 
+  // Active highlighted trip (synced across pills, slats, arch, and right cards)
+  const activeFeaturedTrip = albums[selectedRightCardIndex] || albums[0];
+  const activeHighlights = activeFeaturedTrip.highlightShots || ALL_SIX_COLLECTIONS[0].highlightShots;
+
   // -------------------------------------------------------------
   // Full 2D Spatial TV Remote Navigation Controls
   // -------------------------------------------------------------
@@ -269,7 +402,6 @@ function CreativeTVContent() {
             }
           } else if (focusSection === 'arch') {
             setFocusSection('rightCards');
-            setSelectedRightCardIndex(0);
           } else if (focusSection === 'dock') {
             setDockFocusIndex(prev => Math.min(6, prev + 1));
           }
@@ -349,8 +481,7 @@ function CreativeTVContent() {
               openAlbum(alb.folderId, alb.title);
             }
           } else if (focusSection === 'slats') {
-            const alb = activeFeaturedTrip;
-            openAlbum(alb.folderId, alb.title);
+            openAlbum(activeFeaturedTrip.folderId, activeFeaturedTrip.title);
           } else if (focusSection === 'arch') {
             openAlbum(activeFeaturedTrip.folderId, activeFeaturedTrip.title);
           } else if (focusSection === 'rightCards') {
@@ -403,6 +534,7 @@ function CreativeTVContent() {
     selectedPillIndex,
     dockFocusIndex,
     albums,
+    activeFeaturedTrip,
     inSlideshow,
     router,
   ]);
@@ -417,17 +549,6 @@ function CreativeTVContent() {
       />
     );
   }
-
-  // Active highlighted trip (synced across pills, slats, arch, and right cards)
-  const activeFeaturedTrip = albums[selectedRightCardIndex] || albums[0];
-
-  // Dynamic left 3 slats featuring the active album and its neighbors
-  const slatIndices = [
-    (selectedRightCardIndex - 1 + albums.length) % albums.length,
-    selectedRightCardIndex,
-    (selectedRightCardIndex + 1) % albums.length,
-  ];
-  const dynamicSlats = slatIndices.map(i => albums[i]);
 
   return (
     <div className="relative min-h-[100dvh] w-full bg-[#ececee] text-[#1c1c1e] select-none flex flex-col justify-between p-5 lg:p-7 xl:p-8 overflow-hidden font-sans">
@@ -526,7 +647,7 @@ function CreativeTVContent() {
         </div>
 
         {/* ========================================================= */}
-        {/* ALL 6 ALBUMS EXPLICITLY LISTED IN ELEGANT PILL STRIP      */}
+        {/* ALL 6 ALBUMS EXPLICITLY LISTED ONCE IN QUICK PILL STRIP  */}
         {/* ========================================================= */}
         <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
           <span className="text-[10px] font-mono uppercase tracking-wider text-black/45 mr-1 shrink-0 font-medium">
@@ -586,23 +707,22 @@ function CreativeTVContent() {
       {/* ========================================================= */}
       <main className="relative z-10 flex-1 grid grid-cols-12 gap-5 lg:gap-7 items-center my-1">
         {/* ------------------------------------------------------- */}
-        {/* LEFT: 3 VERTICAL POSTER SLATS (Accordion Style)        */}
+        {/* LEFT: 3 DYNAMIC HIGHLIGHT SHOTS FOR THE SELECTED ALBUM  */}
         {/* ------------------------------------------------------- */}
         <div className="col-span-5 h-[63vh] flex gap-3">
-          {dynamicSlats.map((album, idx) => {
-            const isCenterSlat = idx === 1;
+          {activeHighlights.map((shot, idx) => {
+            const isCenterSlat = idx === 0;
             const isSlatFocused =
               focusSection === 'slats' ? expandedSlatIndex === idx : isCenterSlat;
-            const total = album.totalCount || album.photoCount || 50;
 
             return (
               <motion.div
-                key={album.id + idx}
+                key={shot.url + idx}
                 onMouseEnter={() => {
                   setFocusSection('slats');
                   setExpandedSlatIndex(idx);
                 }}
-                onClick={() => openAlbum(album.folderId, album.title)}
+                onClick={() => openAlbum(activeFeaturedTrip.folderId, activeFeaturedTrip.title)}
                 animate={{
                   flexGrow: isSlatFocused ? 2.6 : 1,
                   scale: isSlatFocused ? 1.01 : 1,
@@ -616,8 +736,8 @@ function CreativeTVContent() {
               >
                 {/* Background Cover Photo with Same-Origin Proxy */}
                 <img
-                  src={album.coverThumbnailUrl}
-                  alt={album.title}
+                  src={shot.url}
+                  alt={shot.title}
                   referrerPolicy="no-referrer"
                   crossOrigin="anonymous"
                   onError={e => {
@@ -630,19 +750,19 @@ function CreativeTVContent() {
                 />
 
                 {/* Scrim Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
 
                 {/* Slat Content Info */}
                 <div className="absolute bottom-5 left-4 right-4 text-white">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-[10px] font-mono tracking-wider text-amber-300 mb-1.5 font-semibold">
-                    <span>{total} MEMORIES</span>
+                    <span>{shot.tag}</span>
                   </div>
 
                   <h3 className="text-xl lg:text-2xl font-bold tracking-tight text-white drop-shadow truncate">
-                    {album.title}
+                    {shot.title}
                   </h3>
                   <p className="text-xs text-white/70 font-light truncate">
-                    {album.subtitle}
+                    {shot.subtitle}
                   </p>
 
                   {isSlatFocused && (
@@ -653,7 +773,7 @@ function CreativeTVContent() {
                     >
                       <div className="flex items-center gap-1.5 font-light">
                         <ImageIcon className="w-3.5 h-3.5 text-amber-300" />
-                        <span>Photos & Videos</span>
+                        <span>{activeFeaturedTrip.title}</span>
                       </div>
                       <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-medium border border-white/25">
                         <Play className="w-3 h-3 fill-white" />
@@ -739,7 +859,7 @@ function CreativeTVContent() {
         </div>
 
         {/* ------------------------------------------------------- */}
-        {/* RIGHT: ALL 6 TRIP ALBUMS LISTED (3D Floating Cards)    */}
+        {/* RIGHT: ALL 6 TRIP ALBUMS (EACH LISTED EXACTLY ONCE)     */}
         {/* ------------------------------------------------------- */}
         <div className="col-span-3 h-[64vh] flex flex-col justify-between py-0.5 [perspective:1200px] gap-2 overflow-y-auto no-scrollbar">
           {albums.map((album, idx) => {
