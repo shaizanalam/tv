@@ -161,6 +161,10 @@ function CreativeTVContent() {
             })
             .catch(() => {});
         });
+      } else if (data.items && data.items.length > 0) {
+        // Direct trip folder opened (e.g. Dubai, Pachmari, etc.)
+        setActivePhotos(data.items);
+        setInSlideshow(true);
       }
     } catch {
       setAlbums(INITIAL_ALBUMS);
