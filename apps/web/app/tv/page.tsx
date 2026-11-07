@@ -45,8 +45,8 @@ export interface AlbumFolder {
 
 const DEFAULT_MAIN_FOLDER = '1qCPS0mAatpr5Yil7t2Zc7hcO9Lbt2ufi';
 
-// The 6 official verified collections in the user's Google Drive with authentic highlight shots
-const ALL_SIX_COLLECTIONS: AlbumFolder[] = [
+// The 5 official verified trip collections in the user's Google Drive with authentic highlight shots
+const VERIFIED_TRIPS: AlbumFolder[] = [
   {
     id: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
     folderId: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
@@ -197,36 +197,6 @@ const ALL_SIX_COLLECTIONS: AlbumFolder[] = [
       },
     ],
   },
-  {
-    id: '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu',
-    folderId: '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu',
-    title: 'Family Archive',
-    subtitle: 'Classic Memories & Tours',
-    coverThumbnailUrl: '/api/drive/image?id=1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC',
-    totalCount: 48,
-    photoCount: 48,
-    videoCount: 0,
-    highlightShots: [
-      {
-        url: '/api/drive/image?id=1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC',
-        tag: 'TRADITIONAL',
-        title: 'Himalayan Portrait',
-        subtitle: 'Classic Riverbank Memory',
-      },
-      {
-        url: '/api/drive/image?id=17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91',
-        tag: 'FAMILY TOURS',
-        title: 'Heritage Moments',
-        subtitle: 'Treasured Family Days',
-      },
-      {
-        url: '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv',
-        tag: 'CITY EXPEDITIONS',
-        title: 'Global Adventures',
-        subtitle: 'Enduring Memories',
-      },
-    ],
-  },
 ];
 
 const FALLBACK_COVER = '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv';
@@ -237,7 +207,7 @@ function CreativeTVContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [albums, setAlbums] = useState<AlbumFolder[]>(ALL_SIX_COLLECTIONS);
+  const [albums, setAlbums] = useState<AlbumFolder[]>(VERIFIED_TRIPS);
   const [selectedAlbumIndex, setSelectedAlbumIndex] = useState(0);
   const [expandedSlatIndex, setExpandedSlatIndex] = useState(0);
   const [selectedRightCardIndex, setSelectedRightCardIndex] = useState(0);
@@ -282,7 +252,7 @@ function CreativeTVContent() {
       const data = await res.json();
       if (data.subfolders && data.subfolders.length > 0) {
         // Filter and merge verified trips while keeping our curated high-res highlight shots
-        const matched = ALL_SIX_COLLECTIONS.map(trip => {
+        const matched = VERIFIED_TRIPS.map(trip => {
           const found = data.subfolders.find((s: AlbumFolder) => s.folderId === trip.folderId);
           return found
             ? {
@@ -318,7 +288,7 @@ function CreativeTVContent() {
         setInSlideshow(true);
       }
     } catch {
-      setAlbums(ALL_SIX_COLLECTIONS);
+      setAlbums(VERIFIED_TRIPS);
     } finally {
       setIsLoading(false);
     }
@@ -357,9 +327,9 @@ function CreativeTVContent() {
     }
   };
 
-  // Play All 1,947 Photos & Videos across all 6 collections
+  // Play All 1,899 Photos & Videos across all 5 trip collections
   const playMasterCollection = async () => {
-    setLoadingAlbumTitle('All 6 Collections (1,947 Items)');
+    setLoadingAlbumTitle('All 5 Trips (1,899 Items)');
     let combined: DriveItem[] = [];
     for (const [, items] of albumPhotosCache.current.entries()) {
       combined = combined.concat(items);
@@ -379,7 +349,7 @@ function CreativeTVContent() {
 
   // Active highlighted trip (synced across pills, slats, arch, and right cards)
   const activeFeaturedTrip = albums[selectedRightCardIndex] || albums[0];
-  const activeHighlights = activeFeaturedTrip.highlightShots || ALL_SIX_COLLECTIONS[0].highlightShots;
+  const activeHighlights = activeFeaturedTrip.highlightShots || VERIFIED_TRIPS[0].highlightShots;
 
   // -------------------------------------------------------------
   // Full 2D Spatial TV Remote Navigation Controls
@@ -647,11 +617,11 @@ function CreativeTVContent() {
         </div>
 
         {/* ========================================================= */}
-        {/* ALL 6 ALBUMS EXPLICITLY LISTED ONCE IN QUICK PILL STRIP  */}
+        {/* ALL 5 TRIPS EXPLICITLY LISTED ONCE IN QUICK PILL STRIP    */}
         {/* ========================================================= */}
         <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
           <span className="text-[10px] font-mono uppercase tracking-wider text-black/45 mr-1 shrink-0 font-medium">
-            All 6 Collections:
+            All 5 Trips:
           </span>
 
           {albums.map((alb, idx) => {
@@ -687,7 +657,7 @@ function CreativeTVContent() {
             );
           })}
 
-          {/* Master Collection Pill: Play All 6 Collections (1,947 Items) */}
+          {/* Master Collection Pill: Play All 5 Trips (1,899 Items) */}
           <button
             onClick={playMasterCollection}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all shrink-0 ${
@@ -697,7 +667,7 @@ function CreativeTVContent() {
             }`}
           >
             <Compass className="w-3.5 h-3.5 text-amber-400" />
-            <span>Play All 6 (1,947)</span>
+            <span>Play All 5 Trips (1,899)</span>
           </button>
         </div>
       </header>
@@ -962,7 +932,7 @@ function CreativeTVContent() {
             className={`p-2 rounded-full text-black/60 hover:text-black hover:bg-black/5 transition-colors cursor-pointer ${
               focusSection === 'dock' && dockFocusIndex === 1 ? 'ring-2 ring-black bg-black/10 text-black' : ''
             }`}
-            title="Play All 6 Collections"
+            title="Play All 5 Trips"
           >
             <Frame className="w-4 h-4" />
           </button>

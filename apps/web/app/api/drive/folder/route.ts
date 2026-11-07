@@ -24,14 +24,13 @@ export interface DriveSubfolder {
   totalCount?: number;
 }
 
-// Verified high-res trip covers for all 6 folders via same-origin image proxy (zero CORS / zero hotlink issues)
+// Verified high-res trip covers for all 5 trip folders via same-origin image proxy (zero CORS / zero hotlink issues)
 const KNOWN_COVERS: Record<string, string> = {
   '17rjsvO8qP2dAime91juLLN1q68ADloZS': '/api/drive/image?id=1GDyj4qioexLHWgWOow3johLzVJrt7DBi', // Ajmer Agra 25 (Couple in car)
   '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za': '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv', // Dubai 2025 (Dubai Mall Emaar Landmark)
   '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp': '/api/drive/image?id=1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z', // GoPro-Exports (Airport Runway Lounge)
   '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs': '/api/drive/image?id=1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0', // Meccah & Madina (Family in White Ihram)
   '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC': '/api/drive/image?id=17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91', // Pachmari (Hill Bungalow)
-  '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu': '/api/drive/image?id=1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC', // data (Himalayan Traditional Portrait)
 };
 
 // Fallback high-res aesthetic covers (Never use a folder ID which causes 404 broken images)
@@ -41,7 +40,6 @@ const FALLBACK_COVER_URLS = [
   '/api/drive/image?id=1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0', // Meccah & Madina
   '/api/drive/image?id=1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z', // GoPro-Exports
   '/api/drive/image?id=17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91', // Pachmari
-  '/api/drive/image?id=1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC', // Family Archive
 ];
 
 // Known item counts to display immediately before deep scanning
@@ -51,7 +49,6 @@ const KNOWN_COUNTS: Record<string, number> = {
   '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs': 593, // Meccah & Madina
   '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp': 259, // GoPro-Exports
   '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC': 292, // Pachmari
-  '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu': 48,  // data (Old memory & documents)
 };
 
 // Default Google public web client key (verified to work on public shared folders without auth)
@@ -175,14 +172,18 @@ async function fetchViaDriveApi(folderId: string) {
 
   for (const file of allFiles) {
     if (file.mimeType === 'application/vnd.google-apps.folder') {
+      // Exclude data/archive folder as requested by the user
+      if (file.id === '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu' || file.name === 'data' || file.name === 'Family Archive') {
+        continue;
+      }
+
       const fallback = FALLBACK_COVER_URLS[subfolders.length % FALLBACK_COVER_URLS.length];
       const cover = KNOWN_COVERS[file.id] || fallback;
-      const count = KNOWN_COUNTS[file.id] || 48;
-      const title = file.name === 'data' ? 'Family Archive' : file.name;
+      const count = KNOWN_COUNTS[file.id] || 250;
       subfolders.push({
         id: file.id,
         folderId: file.id,
-        title,
+        title: file.name,
         coverThumbnailUrl: cover,
         totalCount: count,
         photoCount: count,
@@ -216,15 +217,13 @@ async function fetchViaDriveApi(folderId: string) {
     }
   }
 
-  // Sort all 6 subfolders cleanly
+  // Sort the 5 verified trip subfolders cleanly
   const folderOrder = [
     'Dubai 2025',
     'Ajmer Agra 25',
     'Meccah & Madina',
     'GoPro-Exports',
     'Pachmari',
-    'Family Archive',
-    'data',
   ];
   subfolders.sort((a, b) => {
     const idxA = folderOrder.indexOf(a.title);
@@ -295,14 +294,19 @@ async function fetchViaHtmlScraper(folderId: string) {
 
     if (!seenFolders.has(id)) {
       seenFolders.add(id);
+
+      // Exclude data/archive folder
+      if (id === '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu' || title === 'data' || title === 'Family Archive') {
+        continue;
+      }
+
       const fallback = FALLBACK_COVER_URLS[subfolders.length % FALLBACK_COVER_URLS.length];
       const cover = KNOWN_COVERS[id] || fallback;
-      const count = KNOWN_COUNTS[id] || 50;
-      const displayTitle = title === 'data' ? 'Family Archive' : title;
+      const count = KNOWN_COUNTS[id] || 250;
       subfolders.push({
         id,
         folderId: id,
-        title: displayTitle,
+        title,
         coverThumbnailUrl: cover,
         totalCount: count,
         photoCount: count,

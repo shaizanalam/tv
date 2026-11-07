@@ -37,12 +37,6 @@ const FEATURED_ALBUMS = [
     cover: '/api/drive/image?id=17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91',
     type: '292 Photos & Videos',
   },
-  {
-    title: 'Family Archive',
-    id: '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu',
-    cover: '/api/drive/image?id=1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC',
-    type: 'Old Memories & Media',
-  },
 ];
 
 export default function HomePage() {

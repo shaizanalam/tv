@@ -350,6 +350,11 @@ export function SlideshowPlayer({
                   alt={currentPhoto.name}
                   referrerPolicy="no-referrer"
                   crossOrigin="anonymous"
+                  onError={e => {
+                    const target = e.currentTarget;
+                    target.onerror = null;
+                    target.src = `/api/drive/image?id=${currentPhoto.fileId || currentPhoto.id}`;
+                  }}
                   className="max-h-[72vh] max-w-[80vw] object-contain shadow-2xl"
                   loading="eager"
                 />
@@ -382,6 +387,11 @@ export function SlideshowPlayer({
                   alt={currentPhoto.name}
                   referrerPolicy="no-referrer"
                   crossOrigin="anonymous"
+                  onError={e => {
+                    const target = e.currentTarget;
+                    target.onerror = null;
+                    target.src = `/api/drive/image?id=${currentPhoto.fileId || currentPhoto.id}`;
+                  }}
                   className="w-full h-full object-contain drop-shadow-2xl"
                   loading="eager"
                 />
@@ -559,6 +569,11 @@ export function SlideshowPlayer({
                     alt={p.name}
                     referrerPolicy="no-referrer"
                     crossOrigin="anonymous"
+                    onError={e => {
+                      const target = e.currentTarget;
+                      target.onerror = null;
+                      target.src = `/api/drive/image?id=${p.fileId || p.id}`;
+                    }}
                     className="w-full h-full object-cover"
                     loading="lazy"
                   />
