@@ -47,6 +47,8 @@ export function SlideshowPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
+  const [filmstripFocused, setFilmstripFocused] = useState(false);
+  const [scrubberIndex, setScrubberIndex] = useState(initialIndex);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const currentPhoto = photos[currentIndex];
@@ -63,6 +65,23 @@ export function SlideshowPlayer({
   const getLowResUrl = useCallback((item: DriveItem) => {
     return `https://lh3.googleusercontent.com/d/${item.fileId || item.id}=s400`;
   }, []);
+
+  // Safe video autoplay with TV browser unmuted autoplay fallback
+  const isCurrentVideo = currentPhoto?.mimeType?.startsWith('video/') || !!currentPhoto?.name?.match(/\.(mp4|mov|webm)$/i);
+  useEffect(() => {
+    if (videoRef.current && isCurrentVideo) {
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            setIsMuted(true);
+            videoRef.current.play().catch(() => {});
+          }
+        });
+      }
+    }
+  }, [currentIndex, isCurrentVideo]);
 
   // Activate smart sliding-window memory preloader for JioSphere & TV browsers
   usePhotoPreloader(photos, currentIndex, getImageUrl);
@@ -135,21 +154,47 @@ export function SlideshowPlayer({
       switch (e.key) {
         case 'ArrowRight':
           e.preventDefault();
-          nextPhoto();
+          if (filmstripFocused) {
+            setScrubberIndex(prev => Math.min(photos.length - 1, prev + 1));
+          } else {
+            nextPhoto();
+          }
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          prevPhoto();
+          if (filmstripFocused) {
+            setScrubberIndex(prev => Math.max(0, prev - 1));
+          } else {
+            prevPhoto();
+          }
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          setFilmstripFocused(true);
+          setScrubberIndex(currentIndex);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setFilmstripFocused(false);
           break;
         case 'Enter':
         case ' ':
           e.preventDefault();
-          setIsPlaying(prev => !prev);
+          if (filmstripFocused) {
+            setCurrentIndex(scrubberIndex);
+            setFilmstripFocused(false);
+          } else {
+            setIsPlaying(prev => !prev);
+          }
           break;
         case 'Escape':
         case 'Backspace':
           e.preventDefault();
-          onExit();
+          if (filmstripFocused) {
+            setFilmstripFocused(false);
+          } else {
+            onExit();
+          }
           break;
         case 'f':
         case 'F':
@@ -228,7 +273,6 @@ export function SlideshowPlayer({
 
   const currentUrl = getImageUrl(currentPhoto);
   const lowResUrl = getLowResUrl(currentPhoto);
-  const isCurrentVideo = currentPhoto.mimeType?.startsWith('video/') || !!currentPhoto.name?.match(/\.(mp4|mov|webm)$/i);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black select-none font-sans">
@@ -446,12 +490,18 @@ export function SlideshowPlayer({
               <span>·</span>
               <span>Item {currentIndex + 1} of {photos.length}</span>
               <span>·</span>
-              <span className="text-white/40">D-pad Left/Right to skip</span>
+              <span className="text-white/60">
+                {filmstripFocused ? 'Filmstrip Active: [< >] scrub, [OK] jump, [Up] exit' : 'D-pad [< >] skip, [Down] Filmstrip'}
+              </span>
             </div>
           </div>
 
           {/* Interactive Filmstrip Scrubber */}
-          <div className="pointer-events-auto flex items-center gap-2 bg-black/60 backdrop-blur-2xl p-2 rounded-2xl border border-white/15 shadow-xl overflow-x-auto max-w-2xl">
+          <div className={`pointer-events-auto flex items-center gap-2 bg-black/75 backdrop-blur-2xl p-2.5 rounded-2xl border transition-all overflow-x-auto max-w-2xl ${
+            filmstripFocused
+              ? 'ring-3 ring-amber-400 border-amber-400/50 shadow-2xl scale-[1.02]'
+              : 'border-white/15 shadow-xl'
+          }`}>
             <button
               onClick={prevPhoto}
               className="p-2 text-white/60 hover:text-white transition-colors cursor-pointer"
@@ -459,16 +509,21 @@ export function SlideshowPlayer({
               <ChevronLeft className="w-4 h-4" />
             </button>
 
-            {photos.slice(Math.max(0, currentIndex - 3), currentIndex + 4).map(p => {
+            {photos.slice(Math.max(0, (filmstripFocused ? scrubberIndex : currentIndex) - 4), (filmstripFocused ? scrubberIndex : currentIndex) + 5).map(p => {
               const actualIdx = photos.indexOf(p);
-              const isSelected = actualIdx === currentIndex;
+              const isSelected = filmstripFocused ? actualIdx === scrubberIndex : actualIdx === currentIndex;
               return (
                 <div
                   key={p.fileId || p.id}
-                  onClick={() => setCurrentIndex(actualIdx)}
+                  onClick={() => {
+                    setCurrentIndex(actualIdx);
+                    setFilmstripFocused(false);
+                  }}
                   className={`cursor-pointer rounded-lg overflow-hidden shrink-0 transition-all duration-200 ${
                     isSelected
-                      ? 'w-16 h-12 ring-2 ring-white scale-105 opacity-100 shadow-md'
+                      ? filmstripFocused
+                        ? 'w-16 h-12 ring-3 ring-amber-400 scale-110 opacity-100 shadow-lg'
+                        : 'w-16 h-12 ring-2 ring-white scale-105 opacity-100 shadow-md'
                       : 'w-13 h-9 opacity-45 hover:opacity-90'
                   }`}
                 >

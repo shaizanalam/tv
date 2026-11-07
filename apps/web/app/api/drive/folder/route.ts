@@ -24,24 +24,24 @@ export interface DriveSubfolder {
   totalCount?: number;
 }
 
-// Verified high-res trip covers for all 6 folders
+// Verified high-res trip covers for all 6 folders via same-origin image proxy (zero CORS / zero hotlink issues)
 const KNOWN_COVERS: Record<string, string> = {
-  '17rjsvO8qP2dAime91juLLN1q68ADloZS': 'https://lh3.googleusercontent.com/d/1GDyj4qioexLHWgWOow3johLzVJrt7DBi=s1200', // Ajmer Agra 25
-  '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za': 'https://lh3.googleusercontent.com/d/1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz=s1200', // Dubai 2025
-  '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp': 'https://lh3.googleusercontent.com/d/1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z=s1200', // GoPro-Exports
-  '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs': 'https://lh3.googleusercontent.com/d/1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0=s1200', // Meccah & Madina
-  '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC': 'https://lh3.googleusercontent.com/d/17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91=s1200', // Pachmari
-  '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu': 'https://lh3.googleusercontent.com/d/1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC=s1200', // data (Old memory)
+  '17rjsvO8qP2dAime91juLLN1q68ADloZS': '/api/drive/image?id=1GDyj4qioexLHWgWOow3johLzVJrt7DBi', // Ajmer Agra 25
+  '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za': '/api/drive/image?id=1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz', // Dubai 2025
+  '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp': '/api/drive/image?id=1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z', // GoPro-Exports
+  '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs': '/api/drive/image?id=1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0', // Meccah & Madina
+  '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC': '/api/drive/image?id=17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91', // Pachmari
+  '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu': '/api/drive/image?id=1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC', // data (Old memory)
 };
 
 // Fallback high-res aesthetic covers (Never use a folder ID which causes 404 broken images)
 const FALLBACK_COVER_URLS = [
-  'https://lh3.googleusercontent.com/d/1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz=s1200',
-  'https://lh3.googleusercontent.com/d/1GDyj4qioexLHWgWOow3johLzVJrt7DBi=s1200',
-  'https://lh3.googleusercontent.com/d/1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0=s1200',
-  'https://lh3.googleusercontent.com/d/1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z=s1200',
-  'https://lh3.googleusercontent.com/d/17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91=s1200',
-  'https://lh3.googleusercontent.com/d/1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC=s1200',
+  '/api/drive/image?id=1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz',
+  '/api/drive/image?id=1GDyj4qioexLHWgWOow3johLzVJrt7DBi',
+  '/api/drive/image?id=1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0',
+  '/api/drive/image?id=1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z',
+  '/api/drive/image?id=17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91',
+  '/api/drive/image?id=1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC',
 ];
 
 // Known item counts to display immediately before deep scanning
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
  */
 async function fetchViaDriveApi(folderId: string) {
   let folderTitle = 'Trip Gallery';
-  
+
   // 1. Fetch Folder Metadata (Title)
   try {
     const metaUrl = `https://www.googleapis.com/drive/v3/files/${folderId}?fields=name&key=${GOOGLE_CLIENT_KEY}`;
@@ -144,7 +144,7 @@ async function fetchViaDriveApi(folderId: string) {
       const meta = await metaRes.json();
       if (meta.name) folderTitle = meta.name;
     }
-  } catch {}
+  } catch { }
 
   // 2. Fetch all child items inside this folder with pagination
   let allFiles: any[] = [];
@@ -191,7 +191,7 @@ async function fetchViaDriveApi(folderId: string) {
       const isVideo =
         file.mimeType?.startsWith('video/') ||
         !!file.name?.match(/\.(mp4|mov|webm|m4v|mkv)$/i);
-      
+
       const isImage =
         file.mimeType?.startsWith('image/') ||
         !!file.name?.match(/\.(heic|jpg|jpeg|png|webp|gif)$/i);
@@ -291,7 +291,7 @@ async function fetchViaHtmlScraper(folderId: string) {
     let title = m[2];
     try {
       title = JSON.parse(`"${title}"`);
-    } catch {}
+    } catch { }
 
     if (!seenFolders.has(id)) {
       seenFolders.add(id);
@@ -326,7 +326,7 @@ async function fetchViaHtmlScraper(folderId: string) {
     let name = m[3];
     try {
       name = JSON.parse(`"${name}"`);
-    } catch {}
+    } catch { }
 
     if (!seenFiles.has(id)) {
       seenFiles.add(id);

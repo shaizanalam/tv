@@ -41,7 +41,7 @@ const INITIAL_ALBUMS: AlbumFolder[] = [
     id: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
     folderId: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
     title: 'Dubai 2025',
-    coverThumbnailUrl: 'https://lh3.googleusercontent.com/d/1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz=s1200',
+    coverThumbnailUrl: '/api/drive/image?id=1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz',
     totalCount: 351,
     photoCount: 337,
     videoCount: 14,
@@ -50,7 +50,7 @@ const INITIAL_ALBUMS: AlbumFolder[] = [
     id: '17rjsvO8qP2dAime91juLLN1q68ADloZS',
     folderId: '17rjsvO8qP2dAime91juLLN1q68ADloZS',
     title: 'Ajmer Agra 25',
-    coverThumbnailUrl: 'https://lh3.googleusercontent.com/d/1GDyj4qioexLHWgWOow3johLzVJrt7DBi=s1200',
+    coverThumbnailUrl: '/api/drive/image?id=1GDyj4qioexLHWgWOow3johLzVJrt7DBi',
     totalCount: 404,
     photoCount: 326,
     videoCount: 78,
@@ -59,7 +59,7 @@ const INITIAL_ALBUMS: AlbumFolder[] = [
     id: '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs',
     folderId: '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs',
     title: 'Meccah & Madina',
-    coverThumbnailUrl: 'https://lh3.googleusercontent.com/d/1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0=s1200',
+    coverThumbnailUrl: '/api/drive/image?id=1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0',
     totalCount: 593,
     photoCount: 561,
     videoCount: 32,
@@ -68,7 +68,7 @@ const INITIAL_ALBUMS: AlbumFolder[] = [
     id: '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp',
     folderId: '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp',
     title: 'GoPro-Exports',
-    coverThumbnailUrl: 'https://lh3.googleusercontent.com/d/1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z=s1200',
+    coverThumbnailUrl: '/api/drive/image?id=1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z',
     totalCount: 259,
     photoCount: 132,
     videoCount: 127,
@@ -77,7 +77,7 @@ const INITIAL_ALBUMS: AlbumFolder[] = [
     id: '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC',
     folderId: '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC',
     title: 'Pachmari',
-    coverThumbnailUrl: 'https://lh3.googleusercontent.com/d/17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91=s1200',
+    coverThumbnailUrl: '/api/drive/image?id=17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91',
     totalCount: 292,
     photoCount: 222,
     videoCount: 70,
@@ -86,14 +86,14 @@ const INITIAL_ALBUMS: AlbumFolder[] = [
     id: '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu',
     folderId: '16LdUNRWJjO1JBmUYGSbcqTo0UgoNovBu',
     title: 'Family Archive',
-    coverThumbnailUrl: 'https://lh3.googleusercontent.com/d/1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC=s1200',
+    coverThumbnailUrl: '/api/drive/image?id=1vEDS5R99wQ0vw1aw5PdFSP_vfsQJDheC',
     totalCount: 48,
     photoCount: 45,
     videoCount: 3,
   },
 ];
 
-const FALLBACK_COVER = 'https://lh3.googleusercontent.com/d/1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz=s1200';
+const FALLBACK_COVER = '/api/drive/image?id=1DOaXMzGoetWQVf4zaqTXlCnYjZQeQXyz';
 
 type FocusSection = 'slats' | 'arch' | 'rightCards' | 'dock' | 'search';
 
