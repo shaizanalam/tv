@@ -281,7 +281,6 @@ function CreativeTVContent() {
 
   // Fetch albums
   const fetchAlbums = useCallback(async (targetId: string) => {
-    setIsLoading(true);
     try {
       const res = await fetch(`/api/drive/folder?folder=${encodeURIComponent(targetId)}`);
       const data = await res.json();
@@ -300,12 +299,22 @@ function CreativeTVContent() {
         });
         setAlbums(matched);
 
+        // Preload subfolders in the background quietly without blocking UI
         matched.forEach((sub: AlbumFolder) => {
           fetch(`/api/drive/folder?folder=${encodeURIComponent(sub.folderId)}`)
             .then(r => r.json())
             .then(subData => {
               if (subData.items && subData.items.length > 0) {
                 albumPhotosCache.current.set(sub.folderId, subData.items);
+                // Preload first 2 images into browser cache immediately
+                for (let i = 0; i < Math.min(2, subData.items.length); i++) {
+                  const it = subData.items[i];
+                  if (!it.mimeType?.startsWith('video/')) {
+                    const preload = new Image();
+                    preload.referrerPolicy = 'no-referrer';
+                    preload.src = `https://lh3.googleusercontent.com/d/${it.fileId || it.id}=s1600`;
+                  }
+                }
               }
             })
             .catch(() => {});
@@ -316,8 +325,6 @@ function CreativeTVContent() {
       }
     } catch {
       setAlbums(VERIFIED_TRIPS);
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 

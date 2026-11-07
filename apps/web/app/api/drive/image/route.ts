@@ -2,33 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Server-side in-memory cache for ultra-fast instant image responses
 const imageCache = new Map<string, { buffer: Buffer; contentType: string; timestamp: number }>();
-const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
+const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days cache
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
+  const size = searchParams.get('sz') || '1200';
 
   if (!id) {
     return NextResponse.json({ error: 'Image ID is required' }, { status: 400 });
   }
 
+  const cacheKey = `${id}_${size}`;
+
   // Check server memory cache first (instant 1ms delivery!)
-  const cached = imageCache.get(id);
+  const cached = imageCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return new NextResponse(new Uint8Array(cached.buffer), {
       headers: {
         'Content-Type': cached.contentType,
-        'Cache-Control': 'public, max-age=86400, s-maxage=86400, immutable',
+        'Cache-Control': 'public, max-age=604800, s-maxage=604800, immutable',
         'X-Proxy-Cache': 'HIT',
       },
     });
   }
 
-  // List of high-speed Google CDN URLs to try in order
+  // Fast direct CDN URLs
   const sources = [
-    `https://lh3.googleusercontent.com/d/${id}=s1200`,
-    `https://drive.google.com/thumbnail?id=${id}&sz=w1200`,
-    `https://lh3.googleusercontent.com/d/${id}=s600`,
+    `https://lh3.googleusercontent.com/d/${id}=s${size}`,
+    `https://drive.google.com/thumbnail?id=${id}&sz=w${size}`,
   ];
 
   for (const url of sources) {
