@@ -887,3 +887,4 @@ export interface SlideshowConfig {
 2. **TV Remote Navigation:** All screens in `/tv` are 100% operable using only 5 buttons (`Up`, `Down`, `Left`, `Right`, `OK`, `Back`).
 3. **Memory Budget:** TV browser tab memory footprint remains under 180 MB during an continuous 2-hour 4K slideshow.
 4. **Security Audit:** Unauthorized users cannot retrieve media blobs even with known `file_id` parameters without an active authorized Supabase or TV pairing session.
+

@@ -215,3 +215,4 @@ create policy "Public pair check" on public.device_pairings
 
 create policy "Authenticated users update pairings" on public.device_pairings
     for update using (auth.role() = 'authenticated');
+
