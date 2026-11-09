@@ -550,7 +550,7 @@ function CinematicTVPlatform() {
           </div>
           <div>
             <span className="text-lg font-semibold tracking-tight text-[#F5F5F2]">
-              DriveFrame
+              Alam&apos;s Frame
             </span>
             <span className="text-[10px] font-mono tracking-widest uppercase block text-[#A3A6AD]">
               Personal Cinema
@@ -850,7 +850,7 @@ export default function TVHomePage() {
       fallback={
         <div className="min-h-screen bg-[#101113] text-[#A3A6AD] flex items-center justify-center font-mono text-xs">
           <Loader2 className="w-5 h-5 animate-spin text-[#D8C6A1] mr-2" />
-          Opening DriveFrame Cinema…
+          Opening Alam&apos;s Frame Cinema…
         </div>
       }
     >

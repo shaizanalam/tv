@@ -1,6 +1,6 @@
 {
-  "name": "DriveFrame TV",
-  "short_name": "DriveFrame",
+  "name": "Alam's Frame",
+  "short_name": "Alam's Frame",
   "description": "Ambient digital photo and video gallery frame for Google Drive",
   "start_url": "/tv",
   "display": "fullscreen",

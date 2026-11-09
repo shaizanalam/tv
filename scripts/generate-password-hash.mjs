@@ -28,3 +28,4 @@ console.log(`FAMILY_PASSWORD_HASH=${hash}\n`);
 console.log('Or alternatively, you can simply use:');
 console.log(`FAMILY_PASSWORD=${password}\n`);
 console.log('======================================================\n');
+

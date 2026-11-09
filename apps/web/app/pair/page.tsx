@@ -32,7 +32,7 @@ function PairContent() {
         </div>
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-stone-100">
-            DriveFrame TV
+            Alam&apos;s Frame TV
           </h1>
           <p className="text-xs text-zinc-400">Device Authorization</p>
         </div>

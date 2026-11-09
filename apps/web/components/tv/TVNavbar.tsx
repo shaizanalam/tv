@@ -10,7 +10,7 @@ interface TVNavbarProps {
 }
 
 export function TVNavbar({
-  title = 'DriveFrame',
+  title = "Alam's Frame",
   subtitle = 'Library',
 }: TVNavbarProps) {
   const [timeStr, setTimeStr] = useState<string>('');

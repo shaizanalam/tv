@@ -212,7 +212,7 @@ function RemoteControllerContent() {
           </motion.button>
 
           <div>
-            <h1 className="text-xs font-semibold text-white tracking-tight">DriveFrame TV</h1>
+            <h1 className="text-xs font-semibold text-white tracking-tight">Alam&apos;s Frame</h1>
             <p className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Connected · #{pairCode}
@@ -438,7 +438,7 @@ function RemoteControllerContent() {
 
       {/* Footer */}
       <footer className="text-center text-[10px] text-zinc-500 font-mono py-1">
-        DriveFrame Mouse Touchpad · Glide to move cursor · Tap to click
+        Alam&apos;s Frame Mouse Touchpad · Glide to move cursor · Tap to click
       </footer>
     </div>
   );

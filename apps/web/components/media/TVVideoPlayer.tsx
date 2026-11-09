@@ -12,7 +12,7 @@ import {
   SkipBack,
   RotateCcw,
   Film,
-  ExternalLink,
+  AlertCircle,
 } from 'lucide-react';
 import { DriveItem } from '@/lib/types';
 
@@ -40,25 +40,33 @@ export function TVVideoPlayer({
   const [duration, setDuration] = useState(0);
   const [showHUD, setShowHUD] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [useIframeFallback, setUseIframeFallback] = useState(false);
 
-  // 1. High-Performance Direct Google Usercontent CDN Stream
-  const videoStreamSrc = `https://drive.usercontent.google.com/download?id=${video.fileId || video.id}&export=download&confirm=t`;
-  // 2. Google Drive native preview player fallback (guaranteed to transcode and play 100% of video formats/codecs)
-  const iframePreviewSrc = `https://drive.google.com/file/d/${video.fileId || video.id}/preview`;
+  // 100% Native Same-Origin Stream (zero CORS/CORP blocking, zero external iframe redirects)
+  const videoStreamSrc = `/api/drive/video?id=${video.fileId || video.id}`;
 
-  // Auto-hide HUD after 4 seconds of inactivity
+  // Auto-hide HUD after 4.5 seconds of inactivity
   useEffect(() => {
     if (!showHUD) return;
-    const timer = setTimeout(() => setShowHUD(false), 4000);
+    const timer = setTimeout(() => setShowHUD(false), 4500);
     return () => clearTimeout(timer);
   }, [showHUD, isPlaying]);
 
   // Reset player state when video changes
   useEffect(() => {
-    setUseIframeFallback(false);
+    setHasError(false);
     setCurrentTime(0);
     setIsPlaying(true);
+    if (videoRef.current) {
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {
+        // Handle TV browser autoplay policy (mute and play)
+        if (videoRef.current) {
+          videoRef.current.muted = true;
+          setIsMuted(true);
+          videoRef.current.play().catch(() => {});
+        }
+      });
+    }
   }, [video.id, video.fileId]);
 
   // Handle Play/Pause
@@ -149,82 +157,98 @@ export function TVVideoPlayer({
 
   return (
     <div
-      className="relative w-screen h-screen bg-black select-none overflow-hidden flex items-center justify-center font-sans"
+      className="relative w-screen h-screen bg-[#0c0d10] select-none overflow-hidden flex items-center justify-center font-sans"
       onClick={() => setShowHUD(true)}
     >
-      {/* Primary Video Element or Native Embed */}
-      {useIframeFallback ? (
-        <iframe
-          src={iframePreviewSrc}
-          className="w-full h-full border-none"
-          allow="autoplay"
-        />
-      ) : (
-        <video
-          ref={videoRef}
-          src={videoStreamSrc}
-          autoPlay
-          playsInline
-          muted={isMuted}
-          onTimeUpdate={() => {
-            if (videoRef.current) {
-              setCurrentTime(videoRef.current.currentTime);
-              setDuration(videoRef.current.duration || 0);
-            }
-          }}
-          onEnded={onNext}
-          onError={() => {
-            // Auto switch to Google Drive's native web player if HTML5 video tag fails codec check
-            setUseIframeFallback(true);
-          }}
-          className="w-full h-full object-contain"
-        />
+      {/* 100% Native In-App Cinema Video Element */}
+      <video
+        ref={videoRef}
+        src={videoStreamSrc}
+        autoPlay
+        playsInline
+        muted={isMuted}
+        onTimeUpdate={() => {
+          if (videoRef.current) {
+            setCurrentTime(videoRef.current.currentTime);
+            setDuration(videoRef.current.duration || 0);
+          }
+        }}
+        onEnded={onNext}
+        onError={() => setHasError(true)}
+        className="w-full h-full object-contain"
+      />
+
+      {/* Internal In-App Error Overlay (Never opens Google Drive) */}
+      {hasError && (
+        <div className="absolute inset-0 bg-[#101113]/90 flex flex-col items-center justify-center text-center p-6 z-20">
+          <div className="w-16 h-16 rounded-full bg-red-950/50 border border-red-800/40 flex items-center justify-center mb-4">
+            <Film className="w-8 h-8 text-[#D8C6A1]" />
+          </div>
+          <h2 className="text-xl font-bold text-[#F5F5F2] tracking-tight">
+            Video Format Notice
+          </h2>
+          <p className="text-xs text-[#A3A6AD] max-w-sm mt-1.5 font-light">
+            This video codec is not directly streamable on this browser. You can skip to the next clip in this album.
+          </p>
+          <div className="flex items-center gap-3 mt-6">
+            <button
+              onClick={() => {
+                setHasError(false);
+                if (videoRef.current) {
+                  videoRef.current.load();
+                  videoRef.current.play().catch(() => {});
+                }
+              }}
+              className="px-5 py-2.5 rounded-full bg-[#191B1F] hover:bg-[#22252A] text-[#F5F5F2] border border-[#303238] text-xs font-semibold flex items-center gap-2 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Retry Clip</span>
+            </button>
+            <button
+              onClick={onNext}
+              className="px-6 py-2.5 rounded-full bg-[#D8C6A1] hover:bg-[#E4D5B5] text-[#101113] text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg"
+            >
+              <span>Next Video</span>
+              <SkipForward className="w-3.5 h-3.5 fill-current" />
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* Ambient HUD */}
+      {/* Ambient Cinema HUD */}
       <AnimatePresence>
-        {showHUD && (
+        {showHUD && !hasError && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8 lg:p-12"
+            className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8 lg:p-12 z-10"
             style={{
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 25%, transparent 70%, rgba(0,0,0,0.85) 100%)',
+              background: 'linear-gradient(to bottom, rgba(12,13,16,0.8) 0%, transparent 25%, transparent 70%, rgba(12,13,16,0.9) 100%)',
             }}
           >
             {/* Top Bar */}
             <div className="flex items-center justify-between pointer-events-auto">
               <button
                 onClick={onExit}
-                className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-xs font-semibold cursor-pointer border border-white/15"
+                className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] backdrop-blur-md text-[#F5F5F2] text-xs font-semibold cursor-pointer border border-[#303238]"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4 text-[#D8C6A1]" />
                 <span>Exit Video</span>
               </button>
 
               <div className="flex items-center gap-3">
-                <span className="text-xs font-mono text-white/60">
+                <span className="text-xs font-mono text-[#A3A6AD]">
                   Clip {currentIndex + 1} of {playlist.length}
                 </span>
 
-                {!useIframeFallback && (
-                  <button
-                    onClick={() => setIsMuted(prev => !prev)}
-                    className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white cursor-pointer border border-white/15"
-                  >
-                    {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-white" />}
-                  </button>
-                )}
-
                 <button
-                  onClick={() => setUseIframeFallback(prev => !prev)}
-                  className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-[11px] font-medium cursor-pointer border border-white/15 flex items-center gap-1.5"
-                  title="Switch to Drive Player"
+                  onClick={() => setIsMuted(prev => !prev)}
+                  className="w-9 h-9 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] backdrop-blur-md flex items-center justify-center text-[#F5F5F2] cursor-pointer border border-[#303238]"
+                  title={isMuted ? 'Unmute' : 'Mute'}
                 >
-                  <ExternalLink className="w-3 h-3" />
-                  <span>{useIframeFallback ? 'Stream Mode' : 'Drive Player'}</span>
+                  {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-[#D8C6A1]" />}
                 </button>
               </div>
             </div>
@@ -232,70 +256,66 @@ export function TVVideoPlayer({
             {/* Bottom Scrubber & Metadata */}
             <div className="pointer-events-auto flex flex-col gap-3">
               <div>
-                <h1 className="text-xl lg:text-2xl font-bold text-white tracking-tight drop-shadow truncate">
+                <h1 className="text-xl lg:text-2xl font-bold text-[#F5F5F2] tracking-tight drop-shadow truncate">
                   {cleanTitle}
                 </h1>
-                <p className="text-xs text-white/70 font-light mt-0.5">
+                <p className="text-xs text-[#A3A6AD] font-light mt-0.5">
                   Remote D-pad: [Left/Right] seek 10s · [OK] Pause · [Down] Volume
                 </p>
               </div>
 
-              {!useIframeFallback && (
-                <>
-                  {/* Progress Scrubber */}
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-white/70 min-w-10">
-                      {formatTime(currentTime)}
-                    </span>
-                    <div
-                      className="flex-1 h-2 rounded-full bg-white/25 overflow-hidden cursor-pointer relative"
-                      onClick={e => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const pos = (e.clientX - rect.left) / rect.width;
-                        if (videoRef.current && duration) {
-                          videoRef.current.currentTime = pos * duration;
-                        }
-                      }}
-                    >
-                      <div
-                        className="h-full bg-amber-400 rounded-full transition-all duration-100"
-                        style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-mono text-white/70 min-w-10 text-right">
-                      {formatTime(duration)}
-                    </span>
-                  </div>
+              {/* Progress Scrubber */}
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-mono text-[#A3A6AD] min-w-10">
+                  {formatTime(currentTime)}
+                </span>
+                <div
+                  className="flex-1 h-2 rounded-full bg-white/15 overflow-hidden cursor-pointer relative"
+                  onClick={e => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const pos = (e.clientX - rect.left) / rect.width;
+                    if (videoRef.current && duration) {
+                      videoRef.current.currentTime = pos * duration;
+                    }
+                  }}
+                >
+                  <div
+                    className="h-full bg-[#D8C6A1] rounded-full transition-all duration-100"
+                    style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+                  />
+                </div>
+                <span className="text-xs font-mono text-[#A3A6AD] min-w-10 text-right">
+                  {formatTime(duration)}
+                </span>
+              </div>
 
-                  {/* Center Controls */}
-                  <div className="flex items-center justify-center gap-4 pt-1">
-                    <button
-                      onClick={onPrev}
-                      className="p-2 text-white/70 hover:text-white cursor-pointer"
-                      title="Previous Clip"
-                    >
-                      <SkipBack className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={togglePlay}
-                      className="w-12 h-12 rounded-full bg-amber-400 hover:bg-amber-300 text-black flex items-center justify-center cursor-pointer shadow-lg"
-                    >
-                      {isPlaying ? (
-                        <Pause className="w-5 h-5 fill-current" />
-                      ) : (
-                        <Play className="w-5 h-5 fill-current ml-0.5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={onNext}
-                      className="p-2 text-white/70 hover:text-white cursor-pointer"
-                      title="Next Clip"
-                    >
-                      <SkipForward className="w-5 h-5" />
-                    </button>
-                  </div>
-                </>
-              )}
+              {/* Center Playback Controls */}
+              <div className="flex items-center justify-center gap-4 pt-1">
+                <button
+                  onClick={onPrev}
+                  className="p-2 text-[#A3A6AD] hover:text-[#F5F5F2] cursor-pointer"
+                  title="Previous Clip"
+                >
+                  <SkipBack className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={togglePlay}
+                  className="w-12 h-12 rounded-full bg-[#D8C6A1] hover:bg-[#E4D5B5] text-[#101113] flex items-center justify-center cursor-pointer shadow-lg transition-transform active:scale-95"
+                >
+                  {isPlaying ? (
+                    <Pause className="w-5 h-5 fill-current" />
+                  ) : (
+                    <Play className="w-5 h-5 fill-current ml-0.5" />
+                  )}
+                </button>
+                <button
+                  onClick={onNext}
+                  className="p-2 text-[#A3A6AD] hover:text-[#F5F5F2] cursor-pointer"
+                  title="Next Clip"
+                >
+                  <SkipForward className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </motion.div>
         )}

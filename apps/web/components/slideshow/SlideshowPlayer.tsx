@@ -56,7 +56,7 @@ export function SlideshowPlayer({
   // Helper to construct high-speed Google CDN URLs
   const getImageUrl = useCallback((item: DriveItem) => {
     if (item.mimeType?.startsWith('video/')) {
-      return `https://drive.google.com/uc?export=download&id=${item.fileId || item.id}`;
+      return `/api/drive/video?id=${item.fileId || item.id}`;
     }
     // s1600 is optimal balance: crispy full HD/4K display with 50% faster decode time
     return `https://lh3.googleusercontent.com/d/${item.fileId || item.id}=s1600`;

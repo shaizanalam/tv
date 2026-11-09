@@ -73,7 +73,7 @@ function LoginContent() {
       <header className="relative z-10 w-full max-w-md flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-[#A3A6AD] uppercase">
           <span className="w-2 h-2 rounded-full bg-[#D8C6A1]" />
-          <span>DriveFrame TV</span>
+          <span>Alam&apos;s Frame</span>
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-[#A3A6AD]/80 font-mono">
           <ShieldCheck className="w-3.5 h-3.5 text-[#D8C6A1]" />
@@ -172,7 +172,7 @@ function LoginContent() {
 
       {/* Footer */}
       <footer className="relative z-10 text-center text-xs text-[#A3A6AD]/50 font-mono">
-        DriveFrame · Private Google Drive Cloud Cinema
+        Alam&apos;s Frame · Private Google Drive Cloud Cinema
       </footer>
     </div>
   );
@@ -192,3 +192,4 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+

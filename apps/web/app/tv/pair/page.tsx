@@ -47,7 +47,7 @@ export default function TVPairPage() {
           </div>
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-stone-100">
-              DriveFrame TV
+              Alam&apos;s Frame TV
             </h1>
             <p className="text-zinc-400 text-sm">Television Pairing</p>
           </div>

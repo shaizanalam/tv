@@ -13,3 +13,4 @@ export async function GET(req: NextRequest) {
     expiresAt: valid && payload ? payload.exp : null,
   });
 }
+

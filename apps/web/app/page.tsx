@@ -92,7 +92,7 @@ export default function HomePage() {
             <Tv className="w-5 h-5" style={{ color: 'var(--accent)' }} />
           </div>
           <span className="text-xl font-semibold tracking-tight">
-            DriveFrame
+            Alam&apos;s Frame
           </span>
         </Link>
 
@@ -240,7 +240,7 @@ export default function HomePage() {
         className="w-full max-w-6xl mx-auto px-6 lg:px-12 py-8 flex items-center justify-between text-xs"
         style={{ borderTop: '1px solid var(--separator)', color: 'var(--text-tertiary)' }}
       >
-        <span>DriveFrame</span>
+        <span>Alam&apos;s Frame</span>
         <span className="font-mono">1,899 Photos & Videos</span>
       </footer>
     </div>

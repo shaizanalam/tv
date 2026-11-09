@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'DriveFrame TV — Personal Family Cinema',
+  title: "Alam's Frame — Personal Family Cinema",
   description:
     'A private Google Drive-powered television media platform. Your family memories, on the big screen.',
   manifest: '/manifest.json',
