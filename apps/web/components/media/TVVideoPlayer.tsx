@@ -11,8 +11,8 @@ import {
   SkipForward,
   SkipBack,
   RotateCcw,
-  Maximize2,
   Film,
+  ExternalLink,
 } from 'lucide-react';
 import { DriveItem } from '@/lib/types';
 
@@ -40,9 +40,12 @@ export function TVVideoPlayer({
   const [duration, setDuration] = useState(0);
   const [showHUD, setShowHUD] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [useIframeFallback, setUseIframeFallback] = useState(false);
 
-  // Google Drive direct stream URL
-  const videoSrc = `https://drive.google.com/uc?export=download&id=${video.fileId || video.id}`;
+  // 1. High-Performance Range-Request Proxy Stream
+  const videoStreamSrc = `/api/drive/video?id=${video.fileId || video.id}`;
+  // 2. Google Drive native preview embed fallback (works 100% on any video, any codec)
+  const iframePreviewSrc = `https://drive.google.com/file/d/${video.fileId || video.id}/preview`;
 
   // Auto-hide HUD after 4 seconds of inactivity
   useEffect(() => {
@@ -77,7 +80,7 @@ export function TVVideoPlayer({
         case 'ArrowRight':
           e.preventDefault();
           if (videoRef.current) {
-            videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + 10);
+            videoRef.current.currentTime = Math.min(videoRef.current.duration || 0, videoRef.current.currentTime + 10);
           }
           break;
         case 'ArrowLeft':
@@ -142,39 +145,33 @@ export function TVVideoPlayer({
       className="relative w-screen h-screen bg-black select-none overflow-hidden flex items-center justify-center font-sans"
       onClick={() => setShowHUD(true)}
     >
-      {/* Video Media Surface */}
-      <video
-        ref={videoRef}
-        src={videoSrc}
-        autoPlay
-        playsInline
-        muted={isMuted}
-        onTimeUpdate={() => {
-          if (videoRef.current) {
-            setCurrentTime(videoRef.current.currentTime);
-            setDuration(videoRef.current.duration || 0);
-          }
-        }}
-        onEnded={onNext}
-        onError={() => setHasError(true)}
-        className="w-full h-full object-contain"
-      />
-
-      {/* Error Fallback */}
-      {hasError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white p-6 text-center">
-          <Film className="w-12 h-12 text-amber-400 mb-3" />
-          <h2 className="text-xl font-semibold">Video Playback Error</h2>
-          <p className="text-sm text-white/60 max-w-md mt-1">
-            Google Drive video stream could not be loaded directly. Skipping to the next video in 3 seconds...
-          </p>
-          <button
-            onClick={onNext}
-            className="mt-4 px-5 py-2 rounded-full bg-white text-black font-semibold text-xs cursor-pointer"
-          >
-            Play Next Video
-          </button>
-        </div>
+      {/* Primary Video Element or Native Embed */}
+      {useIframeFallback ? (
+        <iframe
+          src={iframePreviewSrc}
+          className="w-full h-full border-none"
+          allow="autoplay"
+        />
+      ) : (
+        <video
+          ref={videoRef}
+          src={videoStreamSrc}
+          autoPlay
+          playsInline
+          muted={isMuted}
+          onTimeUpdate={() => {
+            if (videoRef.current) {
+              setCurrentTime(videoRef.current.currentTime);
+              setDuration(videoRef.current.duration || 0);
+            }
+          }}
+          onEnded={onNext}
+          onError={() => {
+            // Auto switch to Google Drive's native web player if HTML5 video tag fails codec check
+            setUseIframeFallback(true);
+          }}
+          className="w-full h-full object-contain"
+        />
       )}
 
       {/* Ambient HUD */}
@@ -204,11 +201,23 @@ export function TVVideoPlayer({
                 <span className="text-xs font-mono text-white/60">
                   Clip {currentIndex + 1} of {playlist.length}
                 </span>
+
+                {!useIframeFallback && (
+                  <button
+                    onClick={() => setIsMuted(prev => !prev)}
+                    className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white cursor-pointer border border-white/15"
+                  >
+                    {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-white" />}
+                  </button>
+                )}
+
                 <button
-                  onClick={() => setIsMuted(prev => !prev)}
-                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white cursor-pointer border border-white/15"
+                  onClick={() => setUseIframeFallback(prev => !prev)}
+                  className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-[11px] font-medium cursor-pointer border border-white/15 flex items-center gap-1.5"
+                  title="Switch to Drive Player"
                 >
-                  {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-white" />}
+                  <ExternalLink className="w-3 h-3" />
+                  <span>{useIframeFallback ? 'Stream Mode' : 'Drive Player'}</span>
                 </button>
               </div>
             </div>
@@ -220,62 +229,66 @@ export function TVVideoPlayer({
                   {cleanTitle}
                 </h1>
                 <p className="text-xs text-white/70 font-light mt-0.5">
-                  Use remote D-pad: [Left/Right] seek 10s · [OK] Pause · [Down] Vol
+                  Remote D-pad: [Left/Right] seek 10s · [OK] Pause · [Down] Volume
                 </p>
               </div>
 
-              {/* Progress Scrubber */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-mono text-white/70 min-w-10">
-                  {formatTime(currentTime)}
-                </span>
-                <div
-                  className="flex-1 h-2 rounded-full bg-white/25 overflow-hidden cursor-pointer relative"
-                  onClick={e => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const pos = (e.clientX - rect.left) / rect.width;
-                    if (videoRef.current && duration) {
-                      videoRef.current.currentTime = pos * duration;
-                    }
-                  }}
-                >
-                  <div
-                    className="h-full bg-amber-400 rounded-full transition-all duration-100"
-                    style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-                  />
-                </div>
-                <span className="text-xs font-mono text-white/70 min-w-10 text-right">
-                  {formatTime(duration)}
-                </span>
-              </div>
+              {!useIframeFallback && (
+                <>
+                  {/* Progress Scrubber */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-mono text-white/70 min-w-10">
+                      {formatTime(currentTime)}
+                    </span>
+                    <div
+                      className="flex-1 h-2 rounded-full bg-white/25 overflow-hidden cursor-pointer relative"
+                      onClick={e => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const pos = (e.clientX - rect.left) / rect.width;
+                        if (videoRef.current && duration) {
+                          videoRef.current.currentTime = pos * duration;
+                        }
+                      }}
+                    >
+                      <div
+                        className="h-full bg-amber-400 rounded-full transition-all duration-100"
+                        style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-mono text-white/70 min-w-10 text-right">
+                      {formatTime(duration)}
+                    </span>
+                  </div>
 
-              {/* Center Controls */}
-              <div className="flex items-center justify-center gap-4 pt-1">
-                <button
-                  onClick={onPrev}
-                  className="p-2 text-white/70 hover:text-white cursor-pointer"
-                  title="Previous Clip"
-                >
-                  <SkipBack className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={togglePlay}
-                  className="w-12 h-12 rounded-full bg-amber-400 hover:bg-amber-300 text-black flex items-center justify-center cursor-pointer shadow-lg"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-5 h-5 fill-current" />
-                  ) : (
-                    <Play className="w-5 h-5 fill-current ml-0.5" />
-                  )}
-                </button>
-                <button
-                  onClick={onNext}
-                  className="p-2 text-white/70 hover:text-white cursor-pointer"
-                  title="Next Clip"
-                >
-                  <SkipForward className="w-5 h-5" />
-                </button>
-              </div>
+                  {/* Center Controls */}
+                  <div className="flex items-center justify-center gap-4 pt-1">
+                    <button
+                      onClick={onPrev}
+                      className="p-2 text-white/70 hover:text-white cursor-pointer"
+                      title="Previous Clip"
+                    >
+                      <SkipBack className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={togglePlay}
+                      className="w-12 h-12 rounded-full bg-amber-400 hover:bg-amber-300 text-black flex items-center justify-center cursor-pointer shadow-lg"
+                    >
+                      {isPlaying ? (
+                        <Pause className="w-5 h-5 fill-current" />
+                      ) : (
+                        <Play className="w-5 h-5 fill-current ml-0.5" />
+                      )}
+                    </button>
+                    <button
+                      onClick={onNext}
+                      className="p-2 text-white/70 hover:text-white cursor-pointer"
+                      title="Next Clip"
+                    >
+                      <SkipForward className="w-5 h-5" />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
         )}
