@@ -26,6 +26,7 @@ import {
   Navigation,
   LogOut,
 } from 'lucide-react';
+import { AlamsFrameLogo } from '@/components/brand/AlamsFrameLogo';
 
 const TRIP_COLLECTIONS = [
   { id: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za', name: 'Dubai 2025' },
@@ -212,8 +213,8 @@ function RemoteControllerContent() {
           </motion.button>
 
           <div>
-            <h1 className="text-xs font-semibold text-white tracking-tight">Alam&apos;s Frame</h1>
-            <p className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+            <AlamsFrameLogo className="h-4.5 w-auto text-amber-400" />
+            <p className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Connected · #{pairCode}
             </p>

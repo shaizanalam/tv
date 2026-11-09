@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Tv, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
+import { AlamsFrameLogo } from '@/components/brand/AlamsFrameLogo';
 
 interface TVNavbarProps {
   title?: string;
@@ -10,7 +11,6 @@ interface TVNavbarProps {
 }
 
 export function TVNavbar({
-  title = "Alam's Frame",
   subtitle = 'Library',
 }: TVNavbarProps) {
   const [timeStr, setTimeStr] = useState<string>('');
@@ -35,23 +35,16 @@ export function TVNavbar({
   return (
     <header className="w-full flex items-center justify-between pb-6 select-none">
       {/* Brand Identity */}
-      <Link href="/" className="flex items-center gap-3 group">
-        <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-xl border border-white/15 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
-          <Tv className="w-4 h-4 text-white" />
-        </div>
-        <div className="flex items-center gap-2.5">
-          <span className="text-xl font-semibold tracking-tight text-white">
-            {title}
-          </span>
-          <span className="text-xs text-white/40 font-light tracking-wider uppercase">
-            / {subtitle}
-          </span>
-        </div>
+      <Link href="/" className="flex items-center gap-4 group">
+        <AlamsFrameLogo className="h-7 w-auto text-[#F5F5F2] group-hover:text-[#D8C6A1] transition-colors" />
+        <span className="text-xs text-[#A3A6AD] font-light tracking-wider uppercase pl-3 border-l border-[#303238]">
+          {subtitle}
+        </span>
       </Link>
 
       {/* Minimal Apple Glass Clock */}
-      <div className="flex items-center gap-2 bg-white/[0.06] backdrop-blur-2xl border border-white/10 px-4 py-1.5 rounded-full text-white/90 text-sm font-medium tracking-wide">
-        <Clock className="w-3.5 h-3.5 text-white/60" />
+      <div className="flex items-center gap-2 bg-[#191B1F] border border-[#303238] px-4 py-1.5 rounded-full text-[#F5F5F2] text-sm font-medium tracking-wide">
+        <Clock className="w-3.5 h-3.5 text-[#A3A6AD]" />
         <span>{timeStr || '--:--'}</span>
       </div>
     </header>

@@ -25,6 +25,7 @@ import {
 import { SlideshowPlayer } from '@/components/slideshow/SlideshowPlayer';
 import { TVVideoPlayer } from '@/components/media/TVVideoPlayer';
 import { ProgressiveImage } from '@/components/media/ProgressiveImage';
+import { AlamsFrameLogo } from '@/components/brand/AlamsFrameLogo';
 import { DriveItem } from '@/lib/types';
 
 /* ============================================================
@@ -545,17 +546,7 @@ function CinematicTVPlatform() {
       <header className="relative z-30 flex items-center justify-between px-8 lg:px-14 pt-7 pb-4">
         {/* Brandmark */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#191B1F] border border-[#303238] flex items-center justify-center text-[#D8C6A1] shadow-md">
-            <Tv className="w-5 h-5 stroke-[1.8]" />
-          </div>
-          <div>
-            <span className="text-lg font-semibold tracking-tight text-[#F5F5F2]">
-              Alam&apos;s Frame
-            </span>
-            <span className="text-[10px] font-mono tracking-widest uppercase block text-[#A3A6AD]">
-              Personal Cinema
-            </span>
-          </div>
+          <AlamsFrameLogo className="h-8 lg:h-9 w-auto text-[#D8C6A1] filter drop-shadow-md" />
         </div>
 
         {/* Minimal Category Switcher */}

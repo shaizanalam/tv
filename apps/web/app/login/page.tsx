@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Eye, EyeOff, ArrowRight, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
+import { AlamsFrameLogo } from '@/components/brand/AlamsFrameLogo';
 
 function LoginContent() {
   const router = useRouter();
@@ -71,10 +72,7 @@ function LoginContent() {
 
       {/* Top Brand Tag */}
       <header className="relative z-10 w-full max-w-md flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-[#A3A6AD] uppercase">
-          <span className="w-2 h-2 rounded-full bg-[#D8C6A1]" />
-          <span>Alam&apos;s Frame</span>
-        </div>
+        <AlamsFrameLogo className="h-6 w-auto text-[#D8C6A1]" />
         <div className="flex items-center gap-1.5 text-[11px] text-[#A3A6AD]/80 font-mono">
           <ShieldCheck className="w-3.5 h-3.5 text-[#D8C6A1]" />
           <span>Encrypted Archive</span>
@@ -89,18 +87,21 @@ function LoginContent() {
         className="relative z-10 w-full max-w-md my-auto flex flex-col items-center text-center"
       >
         {/* Subtle Vault Halo Icon */}
-        <div className="relative mb-6">
+        <div className="relative mb-5">
           <div className="w-16 h-16 rounded-3xl bg-[#191B1F] border border-[#303238] flex items-center justify-center shadow-2xl relative z-10">
             <Lock className="w-7 h-7 text-[#D8C6A1] stroke-[1.75]" />
           </div>
           <div className="absolute inset-0 rounded-3xl bg-[#D8C6A1]/20 blur-xl -z-0" />
         </div>
 
+        {/* Official Wordmark Logo */}
+        <AlamsFrameLogo className="h-10 w-auto text-[#D8C6A1] mb-2 filter drop-shadow-md" />
+
         {/* Required Headings */}
-        <h1 className="text-3xl lg:text-4xl font-serif font-light text-[#F5F5F2] tracking-tight">
+        <h1 className="text-2xl lg:text-3xl font-serif font-light text-[#F5F5F2] tracking-tight">
           Private Memories
         </h1>
-        <p className="text-sm lg:text-base text-[#A3A6AD] mt-2 max-w-xs font-light">
+        <p className="text-sm lg:text-base text-[#A3A6AD] mt-1.5 max-w-xs font-light">
           A little corner of our family&apos;s memories.
         </p>
 

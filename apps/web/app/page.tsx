@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Tv, Play, Search, Moon, Sun, LogOut } from 'lucide-react';
+import { AlamsFrameLogo } from '@/components/brand/AlamsFrameLogo';
 
 const FEATURED_ALBUMS = [
   {
@@ -86,14 +87,7 @@ export default function HomePage() {
       {/* Navbar */}
       <nav className="w-full max-w-7xl mx-auto px-6 lg:px-12 py-8 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
-          <div
-            className="w-10 h-10 rounded-2xl glass flex items-center justify-center transition-transform group-hover:scale-105"
-          >
-            <Tv className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-          </div>
-          <span className="text-xl font-semibold tracking-tight">
-            Alam&apos;s Frame
-          </span>
+          <AlamsFrameLogo className="h-7 w-auto transition-transform group-hover:scale-105" style={{ color: 'var(--text-primary)' }} />
         </Link>
 
         <div className="flex items-center gap-3">
@@ -240,7 +234,7 @@ export default function HomePage() {
         className="w-full max-w-6xl mx-auto px-6 lg:px-12 py-8 flex items-center justify-between text-xs"
         style={{ borderTop: '1px solid var(--separator)', color: 'var(--text-tertiary)' }}
       >
-        <span>Alam&apos;s Frame</span>
+        <AlamsFrameLogo className="h-4.5 w-auto opacity-70" style={{ color: 'var(--text-primary)' }} />
         <span className="font-mono">1,899 Photos & Videos</span>
       </footer>
     </div>

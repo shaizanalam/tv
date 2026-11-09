@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks for instant streaming without memory spikes
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
@@ -8,20 +10,38 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Video ID is required' }, { status: 400 });
   }
 
-  const range = req.headers.get('range');
+  const rangeHeader = req.headers.get('range');
 
   try {
+    // Determine the byte range to request from Drive
+    let start = 0;
+    let end: number | undefined;
+
+    if (rangeHeader) {
+      const match = rangeHeader.match(/bytes=(\d+)-(\d+)?/);
+      if (match) {
+        start = parseInt(match[1], 10);
+        if (match[2]) {
+          end = parseInt(match[2], 10);
+        }
+      }
+    }
+
+    // Limit chunk size so video starts playing immediately and memory stays low
+    const targetEnd = end !== undefined ? Math.min(end, start + CHUNK_SIZE - 1) : start + CHUNK_SIZE - 1;
+    const driveRange = `bytes=${start}-${targetEnd}`;
+
     const directUrl = `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`;
 
-    const driveRes = await fetch(directUrl, {
+    let driveRes = await fetch(directUrl, {
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        ...(range ? { Range: range } : {}),
+        Range: driveRange,
       },
     });
 
-    const contentType = driveRes.headers.get('content-type') || 'video/mp4';
+    let contentType = driveRes.headers.get('content-type') || 'video/mp4';
 
     // If Google returned HTML (virus confirmation page for >100MB files)
     if (contentType.includes('text/html')) {
@@ -31,44 +51,33 @@ export async function GET(req: NextRequest) {
 
       const confirmUrl = `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=${confirmToken}&uuid=${confirmToken}`;
 
-      const streamRes = await fetch(confirmUrl, {
+      driveRes = await fetch(confirmUrl, {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          ...(range ? { Range: range } : {}),
+          Range: driveRange,
         },
       });
-
-      const responseHeaders = new Headers();
-      responseHeaders.set('Content-Type', streamRes.headers.get('content-type') || 'video/mp4');
-      if (streamRes.headers.get('content-length')) {
-        responseHeaders.set('Content-Length', streamRes.headers.get('content-length')!);
-      }
-      if (streamRes.headers.get('content-range')) {
-        responseHeaders.set('Content-Range', streamRes.headers.get('content-range')!);
-      }
-      responseHeaders.set('Accept-Ranges', 'bytes');
-      responseHeaders.set('Cache-Control', 'public, max-age=7200');
-
-      return new Response(streamRes.body, {
-        status: streamRes.status,
-        headers: responseHeaders,
-      });
+      contentType = driveRes.headers.get('content-type') || 'video/mp4';
     }
+
+    const contentRange = driveRes.headers.get('content-range');
+    const buffer = await driveRes.arrayBuffer();
 
     const responseHeaders = new Headers();
-    responseHeaders.set('Content-Type', contentType);
-    if (driveRes.headers.get('content-length')) {
-      responseHeaders.set('Content-Length', driveRes.headers.get('content-length')!);
-    }
-    if (driveRes.headers.get('content-range')) {
-      responseHeaders.set('Content-Range', driveRes.headers.get('content-range')!);
-    }
+    responseHeaders.set('Content-Type', contentType.includes('video/') ? contentType : 'video/mp4');
+    responseHeaders.set('Content-Length', String(buffer.byteLength));
     responseHeaders.set('Accept-Ranges', 'bytes');
-    responseHeaders.set('Cache-Control', 'public, max-age=7200');
+    responseHeaders.set('Cache-Control', 'public, max-age=7200, must-revalidate');
 
-    return new Response(driveRes.body, {
-      status: driveRes.status,
+    if (contentRange) {
+      responseHeaders.set('Content-Range', contentRange);
+    } else {
+      responseHeaders.set('Content-Range', `bytes ${start}-${start + buffer.byteLength - 1}/${buffer.byteLength}`);
+    }
+
+    return new Response(buffer, {
+      status: 206,
       headers: responseHeaders,
     });
   } catch (err) {
