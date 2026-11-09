@@ -42,6 +42,7 @@ export function TVVideoPlayer({
   const [showHUD, setShowHUD] = useState(true);
   const [hasError, setHasError] = useState(false);
   const lastTimeUpdate = useRef(0);
+  const retryCount = useRef(0);
 
   // Same-origin stream route with instant Google CDN resolution (zero CORS, hardware Range decode)
   const videoFileId = video.fileId || video.id;
@@ -61,6 +62,7 @@ export function TVVideoPlayer({
 
   // Reset player state & enforce Full Volume (1.0) with zero mute button
   useEffect(() => {
+    retryCount.current = 0;
     setHasError(false);
     setIsBuffering(true);
     setCurrentTime(0);
@@ -71,33 +73,6 @@ export function TVVideoPlayer({
       videoRef.current.volume = 1.0;
       videoRef.current.muted = false;
       videoRef.current.load();
-
-      const playPromise = videoRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            setIsBuffering(false);
-          })
-          .catch(() => {
-            // Autoplay fallback for strict browser audio policies:
-            // Starts video muted, immediately unmuting on first TV remote click or keypress
-            if (videoRef.current) {
-              videoRef.current.muted = true;
-              videoRef.current.play().then(() => {
-                const unmuteHandler = () => {
-                  if (videoRef.current) {
-                    videoRef.current.muted = false;
-                    videoRef.current.volume = 1.0;
-                  }
-                  window.removeEventListener('keydown', unmuteHandler);
-                  window.removeEventListener('click', unmuteHandler);
-                };
-                window.addEventListener('keydown', unmuteHandler, { once: true });
-                window.addEventListener('click', unmuteHandler, { once: true });
-              }).catch(() => {});
-            }
-          });
-      }
     }
   }, [videoFileId]);
 
@@ -197,7 +172,29 @@ export function TVVideoPlayer({
         playsInline
         onLoadStart={() => setIsBuffering(true)}
         onWaiting={() => setIsBuffering(true)}
-        onCanPlay={() => setIsBuffering(false)}
+        onCanPlay={() => {
+          setIsBuffering(false);
+          if (videoRef.current && videoRef.current.paused) {
+            videoRef.current.play().catch(() => {
+              // Muted autoplay fallback if browser restricts unmuted autoplay
+              if (videoRef.current) {
+                videoRef.current.muted = true;
+                videoRef.current.play().then(() => {
+                  const unmuteHandler = () => {
+                    if (videoRef.current) {
+                      videoRef.current.muted = false;
+                      videoRef.current.volume = 1.0;
+                    }
+                    window.removeEventListener('keydown', unmuteHandler);
+                    window.removeEventListener('click', unmuteHandler);
+                  };
+                  window.addEventListener('keydown', unmuteHandler, { once: true });
+                  window.addEventListener('click', unmuteHandler, { once: true });
+                }).catch(() => {});
+              }
+            });
+          }
+        }}
         onPlaying={() => {
           setIsBuffering(false);
           setIsPlaying(true);
@@ -222,6 +219,17 @@ export function TVVideoPlayer({
         }}
         onEnded={onNext}
         onError={() => {
+          if (retryCount.current < 2 && videoRef.current) {
+            retryCount.current += 1;
+            console.warn('Retrying video playback attempt', retryCount.current);
+            setTimeout(() => {
+              if (videoRef.current) {
+                videoRef.current.load();
+                videoRef.current.play().catch(() => {});
+              }
+            }, 600);
+            return;
+          }
           console.warn('Video failed to stream directly:', videoRef.current?.error);
           setHasError(true);
           setIsBuffering(false);

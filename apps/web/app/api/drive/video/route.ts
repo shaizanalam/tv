@@ -1,25 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Server-side in-memory cache for resolved direct Google CDN video URLs (6 hours TTL)
+// Server-side in-memory cache for resolved Google CDN video URLs (6 hours TTL)
 const videoUrlCache = new Map<string, { url: string; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6 hours
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
+const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunk size for instantaneous buffering, zero lag, and deep playhead buffer
 
-  if (!id) {
-    return NextResponse.json({ error: 'Video ID is required' }, { status: 400 });
+// Helper to resolve the authenticated direct Google CDN download URL (bypasses virus warnings)
+async function resolveGoogleDownloadUrl(fileId: string, forceFresh = false): Promise<string> {
+  if (!forceFresh) {
+    const cached = videoUrlCache.get(fileId);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.url;
+    }
   }
 
-  // Check cached direct Google CDN URL
-  const cached = videoUrlCache.get(id);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return NextResponse.redirect(cached.url, 307);
-  }
-
+  const probeUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download`;
   try {
-    const probeUrl = `https://drive.usercontent.google.com/download?id=${id}&export=download`;
     const res = await fetch(probeUrl, {
       headers: {
         'User-Agent':
@@ -40,21 +37,127 @@ export async function GET(req: NextRequest) {
       const confirm = confirmMatch ? confirmMatch[1] : 't';
 
       if (uuid) {
-        streamUrl = `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=${confirm}&uuid=${uuid}`;
+        streamUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=${confirm}&uuid=${uuid}`;
       } else {
-        streamUrl = `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`;
+        streamUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
       }
     }
 
-    // Cache the resolved direct Google CDN stream URL
-    videoUrlCache.set(id, { url: streamUrl, timestamp: Date.now() });
-
-    return NextResponse.redirect(streamUrl, 307);
-  } catch (err) {
-    console.error('Error resolving video stream URL:', err);
-    // Reliable fallback
-    const fallbackUrl = `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`;
-    return NextResponse.redirect(fallbackUrl, 307);
+    videoUrlCache.set(fileId, { url: streamUrl, timestamp: Date.now() });
+    return streamUrl;
+  } catch {
+    return `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
   }
 }
 
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+
+  if (!id) {
+    return NextResponse.json({ error: 'Video ID is required' }, { status: 400 });
+  }
+
+  const rangeHeader = req.headers.get('range');
+
+  try {
+    // 1. Calculate byte range for instant delivery
+    let start = 0;
+    let end: number | undefined;
+
+    if (rangeHeader) {
+      const match = rangeHeader.match(/bytes=(\d+)-(\d+)?/);
+      if (match) {
+        start = parseInt(match[1], 10);
+        if (match[2]) {
+          end = parseInt(match[2], 10);
+        }
+      }
+    }
+
+    // Limit chunk size so video starts playing immediately and memory stays low
+    const targetEnd =
+      end !== undefined ? Math.min(end, start + CHUNK_SIZE - 1) : start + CHUNK_SIZE - 1;
+    const driveRange = `bytes=${start}-${targetEnd}`;
+
+    let targetUrl = await resolveGoogleDownloadUrl(id);
+
+    let driveRes = await fetch(targetUrl, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Range: driveRange,
+      },
+    });
+
+    // If cached URL was invalidated by Google, force refresh and retry once
+    if (driveRes.status === 403 || driveRes.status === 404) {
+      targetUrl = await resolveGoogleDownloadUrl(id, true);
+      driveRes = await fetch(targetUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Range: driveRange,
+        },
+      });
+    }
+
+    let contentType = driveRes.headers.get('content-type') || 'video/mp4';
+
+    // If Google returned an HTML page unexpectedly, refresh token once
+    if (contentType.includes('text/html')) {
+      targetUrl = await resolveGoogleDownloadUrl(id, true);
+      driveRes = await fetch(targetUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Range: driveRange,
+        },
+      });
+      contentType = driveRes.headers.get('content-type') || 'video/mp4';
+    }
+
+    const contentRange = driveRes.headers.get('content-range');
+    const buffer = await driveRes.arrayBuffer();
+
+    const responseHeaders = new Headers();
+    responseHeaders.set(
+      'Content-Type',
+      contentType.includes('video/') ? contentType : 'video/mp4'
+    );
+    responseHeaders.set('Content-Length', String(buffer.byteLength));
+    responseHeaders.set('Accept-Ranges', 'bytes');
+    responseHeaders.set('Cache-Control', 'public, max-age=14400, must-revalidate');
+    responseHeaders.set('Access-Control-Allow-Origin', '*');
+
+    if (contentRange) {
+      responseHeaders.set('Content-Range', contentRange);
+    } else {
+      responseHeaders.set(
+        'Content-Range',
+        `bytes ${start}-${start + buffer.byteLength - 1}/${buffer.byteLength}`
+      );
+    }
+
+    return new Response(buffer, {
+      status: 206,
+      headers: responseHeaders,
+    });
+  } catch (err) {
+    console.error('Error proxying video stream:', err);
+    return NextResponse.json({ error: 'Failed to stream video' }, { status: 502 });
+  }
+}
+
+export async function HEAD(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+  if (!id) return new Response(null, { status: 400 });
+
+  const headers = new Headers();
+  headers.set('Content-Type', 'video/mp4');
+  headers.set('Accept-Ranges', 'bytes');
+  headers.set('Cache-Control', 'public, max-age=14400');
+  headers.set('Access-Control-Allow-Origin', '*');
+  return new Response(null, { status: 200, headers });
+}
