@@ -699,29 +699,56 @@ function CinematicTVPlatform() {
       {/* ========================================================= */}
       {/* 2. REFINED TOP CINEMA NAVIGATION HEADER                   */}
       {/* ========================================================= */}
-      <header className="relative z-30 flex items-center justify-between px-6 lg:px-12 pt-6 pb-2">
-        {/* Brandmark */}
-        <div
-          onClick={() => {
-            setActiveTab('featured');
-            setFocusZone('cards');
-          }}
-          className="flex items-center gap-3 cursor-pointer group"
-        >
-          <AlamsFrameLogo className="h-7 lg:h-8 w-auto text-[#D8C6A1] filter drop-shadow-md group-hover:brightness-110 transition-all" />
+      <header className="relative z-30 flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-6 lg:px-12 pt-4 sm:pt-6 pb-2 gap-3 sm:gap-4">
+        {/* Top Mobile Bar: Brand + Quick Mobile Actions */}
+        <div className="flex items-center justify-between w-full sm:w-auto">
+          {/* Brandmark */}
+          <div
+            onClick={() => {
+              setActiveTab('featured');
+              setFocusZone('cards');
+            }}
+            className="flex items-center gap-3 cursor-pointer group"
+          >
+            <AlamsFrameLogo className="h-6 sm:h-7 lg:h-8 w-auto text-[#D8C6A1] filter drop-shadow-md group-hover:brightness-110 transition-all" />
+          </div>
+
+          {/* Right Mobile Actions: Quick Remote & Sign Out */}
+          <div className="flex sm:hidden items-center gap-2">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.push('/remote')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#191B1F]/90 border border-[#303238] text-[11px] font-medium text-[#D8C6A1]"
+              title="Open Remote Control"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Remote</span>
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={async () => {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                window.location.href = '/login';
+              }}
+              className="w-8 h-8 rounded-full bg-[#191B1F]/90 border border-[#303238] flex items-center justify-center text-[#A3A6AD] hover:text-[#D8C6A1]"
+              title="Lock Vault & Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </motion.button>
+          </div>
         </div>
 
         {/* Minimal Category Switcher with Fluid Motion Pill */}
         <nav
-          className={`flex items-center gap-1 bg-[#191B1F]/90 backdrop-blur-md p-1 rounded-full border transition-all ${
+          className={`flex items-center justify-center gap-1 bg-[#191B1F]/90 backdrop-blur-md p-1 rounded-full border transition-all mx-auto sm:mx-0 w-full sm:w-auto max-w-sm sm:max-w-none ${
             focusZone === 'tabs' ? 'border-[#D8C6A1] ring-2 ring-[#D8C6A1]/40' : 'border-[#303238]'
           }`}
         >
           {(
             [
-              { id: 'featured', label: 'Spotlight' },
-              { id: 'photos', label: `Photos (${totalPhotos.toLocaleString()})` },
-              { id: 'videos', label: `Cinema (${totalVideos.toLocaleString()})` },
+              { id: 'featured', label: 'Spotlight', shortLabel: 'Spotlight' },
+              { id: 'photos', label: `Photos (${totalPhotos.toLocaleString()})`, shortLabel: `Photos (${totalPhotos})` },
+              { id: 'videos', label: `Cinema (${totalVideos.toLocaleString()})`, shortLabel: `Cinema (${totalVideos})` },
             ] as const
           ).map(tab => (
             <button
@@ -730,7 +757,7 @@ function CinematicTVPlatform() {
                 setActiveTab(tab.id);
                 setFocusZone('cards');
               }}
-              className={`relative px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-colors cursor-pointer ${
+              className={`relative flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-colors cursor-pointer text-center ${
                 activeTab === tab.id
                   ? 'text-[#101113]'
                   : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
@@ -743,15 +770,16 @@ function CinematicTVPlatform() {
                   className="absolute inset-0 bg-[#D8C6A1] rounded-full shadow-md -z-0"
                 />
               )}
-              <span className="relative z-10">{tab.label}</span>
+              <span className="relative z-10 hidden sm:inline">{tab.label}</span>
+              <span className="relative z-10 sm:hidden">{tab.shortLabel}</span>
             </button>
           ))}
         </nav>
 
         {/* Right Utility Deck: Clock, Phone Remote, Logout */}
-        <div className="flex items-center gap-2.5">
+        <div className="hidden sm:flex items-center gap-2.5">
           {/* Live Apple Glass Clock */}
-          <div className="hidden sm:flex items-center gap-2 bg-[#191B1F]/80 border border-[#303238] px-3.5 py-1.5 rounded-full text-xs font-medium text-[#F5F5F2] shadow-sm">
+          <div className="flex items-center gap-2 bg-[#191B1F]/80 border border-[#303238] px-3.5 py-1.5 rounded-full text-xs font-medium text-[#F5F5F2] shadow-sm">
             <Clock className="w-3.5 h-3.5 text-[#A3A6AD]" />
             <span>{currentTimeStr || '--:--'}</span>
           </div>
@@ -763,7 +791,7 @@ function CinematicTVPlatform() {
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] border border-[#303238] text-xs font-medium text-[#D8C6A1] cursor-pointer shadow-sm transition-colors"
           >
             <Smartphone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Phone Remote</span>
+            <span>Phone Remote</span>
           </motion.button>
 
           {/* Vault Lock / Sign Out */}
@@ -784,15 +812,15 @@ function CinematicTVPlatform() {
       {/* ========================================================= */}
       {/* 3. HERO CONTENT METADATA & ACTIONS                        */}
       {/* ========================================================= */}
-      <main className="relative z-20 flex flex-col justify-end px-6 lg:px-12 pt-1 pb-4 max-w-4xl">
-        <div className="space-y-2.5">
+      <main className="relative z-20 flex flex-col justify-end px-4 sm:px-6 lg:px-12 pt-3 sm:pt-1 pb-4 max-w-4xl">
+        <div className="space-y-2 sm:space-y-2.5">
           {/* Metadata Badges */}
-          <div className="flex items-center gap-2.5 text-xs font-mono tracking-wider text-[#A3A6AD]">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-mono tracking-wider text-[#A3A6AD]">
             <span className="px-2.5 py-0.5 rounded-full bg-[#191B1F] border border-[#303238] text-[#D8C6A1] font-semibold text-[11px]">
               {activeFeaturedTrip.year}
             </span>
             <span>·</span>
-            <span>{activeFeaturedTrip.location}</span>
+            <span className="truncate">{activeFeaturedTrip.location}</span>
             <span>·</span>
             <span className="text-[#F5F5F2] font-semibold">
               {activeTab === 'videos'
@@ -802,16 +830,16 @@ function CinematicTVPlatform() {
           </div>
 
           {/* Large Editorial Headline */}
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-light tracking-tight text-[#F5F5F2] leading-tight drop-shadow-md">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif font-light tracking-tight text-[#F5F5F2] leading-tight drop-shadow-md">
             {activeFeaturedTrip.title}
           </h1>
 
-          <p className="text-xs md:text-sm text-[#A3A6AD] max-w-xl font-light leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#A3A6AD] max-w-xl font-light leading-relaxed line-clamp-2 sm:line-clamp-none">
             {activeFeaturedTrip.subtitle}
           </p>
 
-          {/* Action Deck (Apple TV / Netflix Pill Buttons) */}
-          <div className="flex items-center gap-3 pt-2">
+          {/* Action Deck (Apple TV / Touch-Friendly Pill Buttons) */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 pt-2">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.96 }}
@@ -822,7 +850,7 @@ function CinematicTVPlatform() {
                   activeTab === 'videos' ? 'videos' : 'photos'
                 )
               }
-              className={`px-6 py-2.5 rounded-full font-semibold text-xs tracking-wide shadow-xl flex items-center gap-2 cursor-pointer transition-all ${
+              className={`w-full sm:w-auto px-6 py-3 sm:py-2.5 rounded-full font-semibold text-xs tracking-wide shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
                 focusZone === 'hero' && heroActionFocus === 'primary'
                   ? 'bg-[#D8C6A1] text-[#101113] ring-2 ring-[#D8C6A1] ring-offset-2 ring-offset-[#101113] scale-[1.02]'
                   : 'bg-[#F5F5F2] hover:bg-[#E5D7B8] text-[#101113]'
@@ -838,7 +866,7 @@ function CinematicTVPlatform() {
               <span>
                 {activeTab === 'videos' ? 'Play Cinema Clips' : 'Play Collection'}
               </span>
-              <kbd className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#101113]/15 border border-black/10">
+              <kbd className="hidden sm:inline ml-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#101113]/15 border border-black/10">
                 OK
               </kbd>
             </motion.button>
@@ -853,7 +881,7 @@ function CinematicTVPlatform() {
                   activeTab === 'videos' ? 'photos' : 'videos'
                 )
               }
-              className={`px-5 py-2.5 rounded-full text-[#F5F5F2] border font-medium text-xs tracking-wide flex items-center gap-2 cursor-pointer shadow-md transition-all ${
+              className={`w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-full text-[#F5F5F2] border font-medium text-xs tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all ${
                 focusZone === 'hero' && heroActionFocus === 'secondary'
                   ? 'bg-[#22252A] border-[#D8C6A1] ring-2 ring-[#D8C6A1] ring-offset-2 ring-offset-[#101113]'
                   : 'bg-[#191B1F]/90 hover:bg-[#22252A] border-[#303238]'
@@ -876,9 +904,9 @@ function CinematicTVPlatform() {
       </main>
 
       {/* ========================================================= */}
-      {/* 4. CURATED TRIPS CAROUSEL (Aspect 16:10, TV-First Focus) */}
+      {/* 4. CURATED TRIPS CAROUSEL (Touch Track on Phone, Grid on TV) */}
       {/* ========================================================= */}
-      <section className="relative z-20 px-6 lg:px-12 pb-5 pt-3">
+      <section className="relative z-20 px-4 sm:px-6 lg:px-12 pb-5 pt-3">
         <div className="flex items-center justify-between pb-2.5">
           <div className="flex items-center gap-2.5">
             <h3 className="text-xs font-mono uppercase tracking-widest text-[#D8C6A1] font-semibold">
@@ -901,7 +929,7 @@ function CinematicTVPlatform() {
         </div>
 
         {/* 5 Landscape Collection Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 lg:gap-4.5">
+        <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none gap-3 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:gap-3.5 lg:gap-4.5">
           {VERIFIED_TRIPS.map((trip, idx) => {
             const isSelected = featuredIndex === idx;
             const isFocused = focusZone === 'cards' && isSelected;
@@ -923,9 +951,9 @@ function CinematicTVPlatform() {
                 }}
                 whileHover={{ y: -4 }}
                 transition={{ type: 'spring', stiffness: 420, damping: 26 }}
-                className={`relative rounded-2xl overflow-hidden aspect-[16/10] cursor-pointer transition-all border ${
+                className={`snap-center shrink-0 w-[68vw] sm:w-auto relative rounded-2xl overflow-hidden aspect-[16/10] cursor-pointer transition-all border ${
                   isFocused
-                    ? 'ring-2 ring-[#D8C6A1] ring-offset-4 ring-offset-[#101113] shadow-[0_20px_48px_rgba(0,0,0,0.85),0_0_28px_rgba(216,198,161,0.25)] scale-[1.04] z-10 border-[#D8C6A1]'
+                    ? 'ring-2 ring-[#D8C6A1] ring-offset-4 ring-offset-[#101113] shadow-[0_20px_48px_rgba(0,0,0,0.85),0_0_28px_rgba(216,198,161,0.25)] scale-[1.03] z-10 border-[#D8C6A1]'
                     : isSelected
                     ? 'ring-1 ring-[#D8C6A1]/70 border-[#D8C6A1]/50 shadow-lg'
                     : 'opacity-75 hover:opacity-100 border-[#303238]'
@@ -984,7 +1012,7 @@ function CinematicTVPlatform() {
       {/* 5. EDITORIAL HIGHLIGHT MOMENTS (Spotlight Mode Only)       */}
       {/* ========================================================= */}
       {activeTab === 'featured' && (
-        <section className="relative z-20 px-6 lg:px-12 pb-7 pt-1">
+        <section className="relative z-20 px-4 sm:px-6 lg:px-12 pb-7 pt-1">
           <div className="flex items-center justify-between pb-2.5">
             <h3 className="text-xs font-mono uppercase tracking-widest text-[#A3A6AD] font-semibold">
               Highlight Moments · {activeFeaturedTrip.title}
@@ -994,7 +1022,7 @@ function CinematicTVPlatform() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3.5">
             {activeFeaturedTrip.highlightShots.map((shot, sIdx) => {
               const isHighlightFocused = focusZone === 'highlights' && highlightFocusIndex === sIdx;
 

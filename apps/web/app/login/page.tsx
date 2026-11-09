@@ -60,7 +60,7 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#101113] text-[#F5F5F2] flex flex-col justify-between items-center p-6 lg:p-12 relative overflow-hidden font-sans select-none">
+    <div className="min-h-[100dvh] w-full bg-[#101113] text-[#F5F5F2] flex flex-col justify-between items-center p-4 sm:p-6 lg:p-12 relative overflow-hidden font-sans select-none">
       {/* Ambient Cinema Backdrop Lighting */}
       <div className="absolute inset-0 pointer-events-none">
         <div

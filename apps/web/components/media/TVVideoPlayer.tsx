@@ -146,6 +146,35 @@ export function TVVideoPlayer({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, onNext, onPrev, onExit]);
 
+  // Mobile Touch Gestures (Swipe Left/Right for Next/Prev, Tap for HUD)
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+
+    // Horizontal swipe threshold: 50px
+    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (deltaX < 0) {
+        onNext(); // swipe left -> next video
+      } else {
+        onPrev(); // swipe right -> prev video
+      }
+    } else if (Math.abs(deltaX) < 12 && Math.abs(deltaY) < 12) {
+      setShowHUD(prev => !prev);
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
   const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -157,6 +186,8 @@ export function TVVideoPlayer({
 
   return (
     <div
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       className="relative w-screen h-screen bg-[#0c0d10] select-none overflow-hidden flex items-center justify-center font-sans"
       onClick={() => setShowHUD(true)}
     >
@@ -306,36 +337,37 @@ export function TVVideoPlayer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8 lg:p-12 z-10"
+            className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 sm:p-8 lg:p-12 z-10"
             style={{
               background:
-                'linear-gradient(to bottom, rgba(12,13,16,0.8) 0%, transparent 25%, transparent 70%, rgba(12,13,16,0.9) 100%)',
+                'linear-gradient(to bottom, rgba(12,13,16,0.85) 0%, transparent 25%, transparent 65%, rgba(12,13,16,0.95) 100%)',
             }}
           >
             {/* Top Bar with Exit and Clip Counter */}
             <div className="flex items-center justify-between pointer-events-auto">
               <button
                 onClick={onExit}
-                className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] backdrop-blur-md text-[#F5F5F2] text-xs font-semibold cursor-pointer border border-[#303238] transition-colors"
+                className="flex items-center gap-1.5 sm:gap-2.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] backdrop-blur-md text-[#F5F5F2] text-xs font-semibold cursor-pointer border border-[#303238] transition-colors"
               >
                 <ArrowLeft className="w-4 h-4 text-[#D8C6A1]" />
-                <span>Exit Video</span>
+                <span className="hidden sm:inline">Exit Video</span>
+                <span className="sm:hidden">Exit</span>
               </button>
 
-              <div className="flex items-center gap-2 bg-[#191B1F]/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[#303238]">
-                <span className="text-xs font-mono text-[#D8C6A1]">
+              <div className="flex items-center gap-1.5 bg-[#191B1F]/80 backdrop-blur-md px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full border border-[#303238]">
+                <span className="text-[11px] sm:text-xs font-mono text-[#D8C6A1]">
                   Clip {currentIndex + 1} of {playlist.length}
                 </span>
               </div>
             </div>
 
             {/* Bottom Scrubber & Metadata */}
-            <div className="pointer-events-auto flex flex-col gap-3">
+            <div className="pointer-events-auto flex flex-col gap-2.5 sm:gap-3">
               <div>
-                <h1 className="text-xl lg:text-2xl font-bold text-[#F5F5F2] tracking-tight drop-shadow truncate">
+                <h1 className="text-base sm:text-xl lg:text-2xl font-bold text-[#F5F5F2] tracking-tight drop-shadow truncate">
                   {cleanTitle}
                 </h1>
-                <div className="flex items-center gap-2 mt-1 text-[11px] text-[#A3A6AD]">
+                <div className="hidden sm:flex items-center gap-2 mt-1 text-[11px] text-[#A3A6AD]">
                   <span className="flex items-center gap-1">
                     <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#191B1F] border border-[#303238] text-[#D8C6A1]">← / →</kbd>
                     <span>Prev / Next Video</span>

@@ -156,6 +156,36 @@ export function SlideshowPlayer({
     return () => clearTimeout(hideTimer);
   }, [showHUD, currentIndex]);
 
+  // Mobile Touch Gestures (Swipe Left/Right for Next/Prev, Tap for HUD)
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+
+    // Horizontal swipe threshold: 45px
+    if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (deltaX < 0) {
+        nextPhoto();
+      } else {
+        prevPhoto();
+      }
+    } else if (Math.abs(deltaX) < 12 && Math.abs(deltaY) < 12) {
+      // Direct tap toggles HUD
+      setShowHUD(prev => !prev);
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
   // Screen Wake Lock API: Prevent TV from sleeping or dimming during slideshow
   useEffect(() => {
     let wakeLock: any = null;
@@ -312,7 +342,11 @@ export function SlideshowPlayer({
   const lowResUrl = getLowResUrl(currentPhoto);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black select-none font-sans">
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className="relative w-screen h-screen overflow-hidden bg-black select-none font-sans"
+    >
       {/* 1. Low-latency Blurred Ambient Glow Backdrop */}
       {!isArtFrame && (
         <div
@@ -418,18 +452,19 @@ export function SlideshowPlayer({
         }`}
       >
         {/* Top Floating Glass Navigation Bar */}
-        <div className="absolute top-8 left-10 right-10 flex items-center justify-between">
+        <div className="absolute top-3 left-3 right-3 sm:top-8 sm:left-10 sm:right-10 flex items-center justify-between gap-2">
           {/* Back Pill */}
-          <div className="flex items-center gap-3 bg-[#101113]/85 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-[#303238] shadow-2xl">
+          <div className="flex items-center gap-2 sm:gap-3 bg-[#101113]/85 backdrop-blur-2xl px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-full border border-[#303238] shadow-2xl">
             <button
               onClick={onExit}
-              className="pointer-events-auto flex items-center gap-2 text-[#F5F5F2] text-xs font-medium hover:text-[#D8C6A1] transition-colors cursor-pointer"
+              className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 text-[#F5F5F2] text-xs font-medium hover:text-[#D8C6A1] transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5 text-[#D8C6A1]" />
-              <span>Back to Library</span>
+              <span className="hidden sm:inline">Back to Library</span>
+              <span className="sm:hidden">Library</span>
             </button>
             <span className="text-[#303238]">|</span>
-            <div className="flex items-center gap-1.5 text-xs text-[#A3A6AD] font-mono">
+            <div className="flex items-center gap-1 text-[11px] sm:text-xs text-[#A3A6AD] font-mono">
               <span className="text-[#D8C6A1] font-semibold">{currentIndex + 1}</span>
               <span>/</span>
               <span>{photos.length}</span>
@@ -437,21 +472,21 @@ export function SlideshowPlayer({
           </div>
 
           {/* Right Floating Control Cluster */}
-          <div className="flex items-center gap-3 bg-[#101113]/85 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-[#303238] shadow-2xl text-[#F5F5F2]">
+          <div className="flex items-center gap-2 sm:gap-3 bg-[#101113]/85 backdrop-blur-2xl px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-full border border-[#303238] shadow-2xl text-[#F5F5F2]">
             {/* Play/Pause */}
             <button
               onClick={() => setIsPlaying(p => !p)}
-              className="pointer-events-auto flex items-center gap-2 text-xs font-medium hover:text-[#D8C6A1] transition-colors cursor-pointer"
+              className="pointer-events-auto flex items-center gap-1.5 text-xs font-medium hover:text-[#D8C6A1] transition-colors cursor-pointer"
             >
               {isPlaying ? (
                 <>
                   <Pause className="w-3.5 h-3.5 fill-current text-[#D8C6A1]" />
-                  <span>Playing</span>
+                  <span className="hidden sm:inline">Playing</span>
                 </>
               ) : (
                 <>
                   <Play className="w-3.5 h-3.5 fill-current text-[#D8C6A1]" />
-                  <span>Paused</span>
+                  <span className="hidden sm:inline">Paused</span>
                 </>
               )}
             </button>
@@ -464,9 +499,10 @@ export function SlideshowPlayer({
               className={`pointer-events-auto p-1 rounded-md text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
                 isShuffle ? 'text-[#D8C6A1] font-semibold' : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
               }`}
+              title="Shuffle"
             >
               <Shuffle className="w-3.5 h-3.5" />
-              <span>Shuffle</span>
+              <span className="hidden md:inline">Shuffle</span>
             </button>
 
             <span className="text-[#303238]">|</span>
@@ -477,15 +513,15 @@ export function SlideshowPlayer({
               className={`pointer-events-auto p-1 rounded-md text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
                 isArtFrame ? 'text-[#D8C6A1] font-semibold' : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
               }`}
+              title="Art Frame Mode"
             >
               <Frame className="w-3.5 h-3.5" />
-              <span>Art Frame (F)</span>
+              <span className="hidden lg:inline">Art Frame (F)</span>
             </button>
 
-            <span className="text-[#303238]">|</span>
-
             {/* Ambient Clock */}
-            <div className="flex items-center gap-1.5 text-xs font-light text-[#F5F5F2]">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs font-light text-[#F5F5F2]">
+              <span className="text-[#303238]">|</span>
               <Clock className="w-3 h-3 text-[#D8C6A1]" />
               <span>{clockStr}</span>
             </div>
@@ -494,7 +530,7 @@ export function SlideshowPlayer({
 
         {/* Video Scrubber (Appears when video is playing) */}
         {isCurrentVideo && (
-          <div className="absolute top-22 left-10 right-10">
+          <div className="absolute top-16 sm:top-22 left-3 right-3 sm:left-10 sm:right-10">
             <div className="w-full bg-white/15 h-1.5 rounded-full overflow-hidden backdrop-blur-sm">
               <div
                 className="bg-[#D8C6A1] h-full transition-all duration-200"
@@ -505,39 +541,39 @@ export function SlideshowPlayer({
         )}
 
         {/* Bottom Scrubber & Metadata Bar */}
-        <div className="absolute bottom-8 left-10 right-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="absolute bottom-3 left-3 right-3 sm:bottom-8 sm:left-10 sm:right-10 flex flex-col md:flex-row md:items-end justify-between gap-2.5 sm:gap-4">
           {/* Item Meta Card */}
-          <div className="max-w-lg bg-[#101113]/85 backdrop-blur-2xl px-6 py-4 rounded-2xl border border-[#303238] shadow-2xl">
-            <h2 className="text-lg md:text-xl font-medium tracking-tight text-[#F5F5F2] truncate">
+          <div className="max-w-full sm:max-w-lg bg-[#101113]/85 backdrop-blur-2xl px-4 py-2.5 sm:px-6 sm:py-4 rounded-xl sm:rounded-2xl border border-[#303238] shadow-2xl">
+            <h2 className="text-sm sm:text-lg md:text-xl font-medium tracking-tight text-[#F5F5F2] truncate">
               {currentPhoto.name.replace(/\.[^/.]+$/, '')}
             </h2>
-            <div className="flex items-center gap-2.5 text-xs text-[#A3A6AD] font-light mt-1">
-              <span className="uppercase tracking-wider font-mono text-[10px] bg-[#191B1F] border border-[#303238] px-2 py-0.5 rounded text-[#D8C6A1] font-semibold">
+            <div className="flex items-center gap-2 text-[11px] sm:text-xs text-[#A3A6AD] font-light mt-0.5 sm:mt-1">
+              <span className="uppercase tracking-wider font-mono text-[9px] sm:text-[10px] bg-[#191B1F] border border-[#303238] px-1.5 py-0.5 rounded text-[#D8C6A1] font-semibold">
                 {isCurrentVideo ? 'Cinema Video' : 'Original Photo'}
               </span>
               <span>·</span>
               <span>Item {currentIndex + 1} of {photos.length}</span>
-              <span>·</span>
-              <span className="text-[#A3A6AD]">
+              <span className="hidden sm:inline">·</span>
+              <span className="hidden sm:inline text-[#A3A6AD]">
                 {filmstripFocused ? 'Filmstrip Active: [< >] scrub, [OK] jump, [Up] exit' : 'D-pad [< >] skip, [Down] Filmstrip'}
               </span>
             </div>
           </div>
 
           {/* Interactive Filmstrip Scrubber */}
-          <div className={`pointer-events-auto flex items-center gap-2 bg-[#101113]/90 backdrop-blur-2xl p-2.5 rounded-2xl border transition-all overflow-x-auto max-w-2xl ${
+          <div className={`pointer-events-auto flex items-center gap-1.5 sm:gap-2 bg-[#101113]/90 backdrop-blur-2xl p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border transition-all overflow-x-auto max-w-full sm:max-w-2xl scrollbar-none ${
             filmstripFocused
-              ? 'ring-2 ring-[#D8C6A1] border-[#D8C6A1]/60 shadow-2xl scale-[1.02]'
+              ? 'ring-2 ring-[#D8C6A1] border-[#D8C6A1]/60 shadow-2xl scale-[1.01]'
               : 'border-[#303238] shadow-xl'
           }`}>
             <button
               onClick={prevPhoto}
-              className="p-2 text-[#A3A6AD] hover:text-[#F5F5F2] transition-colors cursor-pointer"
+              className="p-1 sm:p-2 text-[#A3A6AD] hover:text-[#F5F5F2] transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
 
-            {photos.slice(Math.max(0, (filmstripFocused ? scrubberIndex : currentIndex) - 4), (filmstripFocused ? scrubberIndex : currentIndex) + 5).map(p => {
+            {photos.slice(Math.max(0, (filmstripFocused ? scrubberIndex : currentIndex) - 3), (filmstripFocused ? scrubberIndex : currentIndex) + 4).map(p => {
               const actualIdx = photos.indexOf(p);
               const isSelected = filmstripFocused ? actualIdx === scrubberIndex : actualIdx === currentIndex;
               return (
@@ -550,9 +586,9 @@ export function SlideshowPlayer({
                   className={`cursor-pointer rounded-lg overflow-hidden shrink-0 transition-all duration-200 ${
                     isSelected
                       ? filmstripFocused
-                        ? 'w-16 h-12 ring-2 ring-[#D8C6A1] scale-110 opacity-100 shadow-lg border border-[#D8C6A1]'
-                        : 'w-16 h-12 ring-2 ring-[#D8C6A1]/80 scale-105 opacity-100 shadow-md border border-[#D8C6A1]/50'
-                      : 'w-13 h-9 opacity-45 hover:opacity-90 border border-[#303238]'
+                        ? 'w-13 h-9 sm:w-16 sm:h-12 ring-2 ring-[#D8C6A1] scale-105 opacity-100 shadow-lg border border-[#D8C6A1]'
+                        : 'w-13 h-9 sm:w-16 sm:h-12 ring-2 ring-[#D8C6A1]/80 scale-105 opacity-100 shadow-md border border-[#D8C6A1]/50'
+                      : 'w-10 h-7 sm:w-13 sm:h-9 opacity-45 hover:opacity-90 border border-[#303238]'
                   }`}
                 >
                   <img
@@ -574,7 +610,7 @@ export function SlideshowPlayer({
 
             <button
               onClick={nextPhoto}
-              className="p-2 text-white/60 hover:text-white transition-colors cursor-pointer"
+              className="p-1 sm:p-2 text-white/60 hover:text-white transition-colors cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
