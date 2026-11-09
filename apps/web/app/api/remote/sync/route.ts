@@ -1,21 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export interface RemoteCommand {
-  type: 'dpad_up' | 'dpad_down' | 'dpad_left' | 'dpad_right' | 'ok' | 'back' | 'play_pause' | 'skip_next' | 'skip_prev' | 'switch_hub' | 'select_album';
+  type:
+    | 'dpad_up'
+    | 'dpad_down'
+    | 'dpad_left'
+    | 'dpad_right'
+    | 'ok'
+    | 'back'
+    | 'play_pause'
+    | 'skip_next'
+    | 'skip_prev'
+    | 'switch_hub'
+    | 'select_album'
+    | 'cursor_move'
+    | 'cursor_click';
   payload?: any;
   timestamp: number;
 }
 
 // In-memory sync store for active pairings & recent commands
-// Key: 6-digit pair code (e.g., '482917')
 const activeSessions = new Map<string, {
   createdAt: number;
   lastCommand: RemoteCommand | null;
+  cursorPos?: { x: number; y: number };
   connectedAt?: number;
 }>();
-
-// Expire old sessions after 24 hours
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -25,15 +35,14 @@ export async function GET(req: NextRequest) {
   const session = activeSessions.get(code);
 
   if (!session) {
-    // Automatically register default session
     activeSessions.set(code, {
       createdAt: Date.now(),
       lastCommand: null,
+      cursorPos: { x: 50, y: 50 },
     });
     return NextResponse.json({ status: 'active', command: null });
   }
 
-  // If phone sent a command that the TV has not yet executed
   if (session.lastCommand && session.lastCommand.timestamp > since) {
     return NextResponse.json({
       status: 'active',
@@ -56,6 +65,7 @@ export async function POST(req: NextRequest) {
     const session = activeSessions.get(code) || {
       createdAt: Date.now(),
       lastCommand: null,
+      cursorPos: { x: 50, y: 50 },
     };
 
     session.lastCommand = {
@@ -71,4 +81,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to process command' }, { status: 500 });
   }
 }
-

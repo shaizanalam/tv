@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Play,
+  Pause,
   SkipForward,
   SkipBack,
   CornerUpLeft,
@@ -22,6 +23,7 @@ import {
   Grid,
   ArrowLeft,
   Smartphone,
+  Navigation,
 } from 'lucide-react';
 
 const TRIP_COLLECTIONS = [
@@ -37,12 +39,15 @@ function RemoteControllerContent() {
   const pairCode = searchParams.get('pair') || searchParams.get('code') || '482917';
 
   const [activeTab, setActiveTab] = useState<'photos' | 'videos'>('photos');
-  const [controlMode, setControlMode] = useState<'trackpad' | 'dpad'>('trackpad');
-  const [lastGesture, setLastGesture] = useState<string>('');
+  const [controlMode, setControlMode] = useState<'cursor' | 'dpad'>('cursor');
+  const [fingerFeedbackPos, setFingerFeedbackPos] = useState<{ x: number; y: number } | null>(null);
 
-  // Touchpad touch tracking refs
+  // High-frequency throttle buffer for 60fps touchpad tracking
+  const lastTouchPos = useRef<{ x: number; y: number; time: number } | null>(null);
   const touchStartPos = useRef<{ x: number; y: number; time: number } | null>(null);
   const touchPadRef = useRef<HTMLDivElement | null>(null);
+  const isDragging = useRef(false);
+  const lastSyncSendTime = useRef(0);
 
   // Send Remote Command over sync channel
   const sendCommand = useCallback(
@@ -50,12 +55,9 @@ function RemoteControllerContent() {
       // Gentle mobile haptic vibration
       if (typeof window !== 'undefined' && 'vibrate' in navigator) {
         try {
-          navigator.vibrate(25);
+          navigator.vibrate(20);
         } catch {}
       }
-
-      setLastGesture(type);
-      setTimeout(() => setLastGesture(''), 500);
 
       try {
         await fetch('/api/remote/sync', {
@@ -77,66 +79,105 @@ function RemoteControllerContent() {
     [pairCode]
   );
 
-  // Touchpad Gestures: Tap to OK, Swipe Up/Down/Left/Right
+  // Mouse Cursor Touchpad Engine:
+  // Tracks delta movement on phone touchpad and sends delta percentages to TV
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
+    const rect = touchPadRef.current?.getBoundingClientRect();
+    if (rect) {
+      setFingerFeedbackPos({
+        x: touch.clientX - rect.left,
+        y: touch.clientY - rect.top,
+      });
+    }
+
+    lastTouchPos.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
     touchStartPos.current = {
       x: touch.clientX,
       y: touch.clientY,
       time: Date.now(),
     };
+    isDragging.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!lastTouchPos.current || !touchPadRef.current) return;
+    const touch = e.touches[0];
+    const rect = touchPadRef.current.getBoundingClientRect();
+
+    setFingerFeedbackPos({
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    });
+
+    const dx = touch.clientX - lastTouchPos.current.x;
+    const dy = touch.clientY - lastTouchPos.current.y;
+
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      isDragging.current = true;
+    }
+
+    // Convert pixel delta on phone into normalized TV movement multiplier
+    const sensitivity = 0.55;
+    const deltaX = (dx / rect.width) * 100 * sensitivity;
+    const deltaY = (dy / rect.height) * 100 * sensitivity;
+
+    lastTouchPos.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+
+    // Throttle cursor movement sync to ~50ms for buttery responsiveness
+    const now = Date.now();
+    if (now - lastSyncSendTime.current > 40) {
+      lastSyncSendTime.current = now;
+      sendCommand('cursor_move', { dx: deltaX, dy: deltaY });
+    }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    setFingerFeedbackPos(null);
+
     if (!touchStartPos.current) return;
     const touch = e.changedTouches[0];
-    const dx = touch.clientX - touchStartPos.current.x;
-    const dy = touch.clientY - touchStartPos.current.y;
+    const totalDist = Math.hypot(
+      touch.clientX - touchStartPos.current.x,
+      touch.clientY - touchStartPos.current.y
+    );
     const dt = Date.now() - touchStartPos.current.time;
 
-    const absX = Math.abs(dx);
-    const absY = Math.abs(dy);
-    const minSwipeDist = 35; // minimum distance in px for a gesture
-
-    if (absX < 15 && absY < 15 && dt < 300) {
-      // Tap detected -> Execute OK
-      sendCommand('ok');
-    } else if (absX > absY && absX > minSwipeDist) {
-      // Horizontal swipe
-      if (dx > 0) {
-        sendCommand('dpad_right');
-      } else {
-        sendCommand('dpad_left');
-      }
-    } else if (absY > absX && absY > minSwipeDist) {
-      // Vertical swipe
-      if (dy > 0) {
-        sendCommand('dpad_down');
-      } else {
-        sendCommand('dpad_up');
-      }
+    // Fast tap with minimal travel (< 10px in under 300ms) = TV Cursor Click!
+    if (!isDragging.current || (totalDist < 12 && dt < 300)) {
+      sendCommand('cursor_click');
     }
 
     touchStartPos.current = null;
+    lastTouchPos.current = null;
+    isDragging.current = false;
   };
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#0d0e11] text-stone-100 flex flex-col justify-between p-4 sm:p-5 select-none font-sans">
-      {/* 1. Header with prominent Back Button */}
+    <div className="min-h-[100dvh] w-full bg-[#0c0d10] text-stone-100 flex flex-col justify-between p-4 sm:p-5 select-none font-sans">
+      {/* 1. Header with prominent Back Button & Status */}
       <header className="flex items-center justify-between pb-3 border-b border-white/10">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           {/* Prominent Back Button */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => sendCommand('back')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400 text-black font-bold text-xs cursor-pointer shadow-md active:bg-amber-300"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-400 text-black font-bold text-xs cursor-pointer shadow-md active:bg-amber-300"
             title="Back / Exit on TV"
           >
             <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
             <span>Back</span>
           </motion.button>
 
-          <div className="pl-1">
+          <div>
             <h1 className="text-xs font-semibold text-white tracking-tight">DriveFrame TV</h1>
             <p className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -145,21 +186,21 @@ function RemoteControllerContent() {
           </div>
         </div>
 
-        {/* Mode Selector: Touchpad vs D-Pad */}
+        {/* Mode Selector: Mouse Cursor vs D-Pad */}
         <div className="flex items-center bg-zinc-900 border border-white/10 p-1 rounded-full gap-1">
           <button
-            onClick={() => setControlMode('trackpad')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-all ${
-              controlMode === 'trackpad' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-400'
+            onClick={() => setControlMode('cursor')}
+            className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold cursor-pointer transition-all ${
+              controlMode === 'cursor' ? 'bg-amber-400 text-black shadow-sm' : 'text-zinc-400'
             }`}
           >
-            <MousePointer className="w-3 h-3" />
-            <span>Touchpad</span>
+            <Navigation className="w-3 h-3 fill-current rotate-45" />
+            <span>Mouse Cursor</span>
           </button>
           <button
             onClick={() => setControlMode('dpad')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-all ${
-              controlMode === 'dpad' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-400'
+            className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold cursor-pointer transition-all ${
+              controlMode === 'dpad' ? 'bg-amber-400 text-black shadow-sm' : 'text-zinc-400'
             }`}
           >
             <Grid className="w-3 h-3" />
@@ -168,61 +209,66 @@ function RemoteControllerContent() {
         </div>
       </header>
 
-      {/* 2. Main Interactive Surface (Touchpad or D-Pad) */}
-      <main className="my-auto flex flex-col items-center gap-4 py-2 w-full max-w-sm mx-auto">
-        {controlMode === 'trackpad' ? (
+      {/* 2. Main Interactive Surface */}
+      <main className="my-auto flex flex-col items-center gap-3.5 py-2 w-full max-w-sm mx-auto">
+        {controlMode === 'cursor' ? (
           /* ============================================================ */
-          /* TOUCHPAD CONTROLLER (Apple TV Remote Trackpad Style)          */
+          /* MOUSE CURSOR TOUCHPAD (Smooth Delta Glide + Tap Click)       */
           /* ============================================================ */
           <div className="w-full flex flex-col items-center gap-2">
             <div
               ref={touchPadRef}
               onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className="relative w-full h-72 rounded-3xl bg-gradient-to-b from-zinc-800/80 to-zinc-900/95 border-2 border-white/15 shadow-2xl flex flex-col items-center justify-center p-6 cursor-pointer touch-none active:border-amber-400/50 transition-colors"
+              className="relative w-full h-80 rounded-3xl bg-gradient-to-b from-zinc-800/90 to-zinc-950 border-2 border-white/20 shadow-2xl flex flex-col items-center justify-center p-6 cursor-crosshair touch-none active:border-amber-400/60 transition-colors overflow-hidden"
             >
-              {/* Subtle Touchpad Grid Texture */}
-              <div className="absolute inset-0 rounded-3xl bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+              {/* Subtle Precision Grid Lines */}
+              <div className="absolute inset-0 rounded-3xl bg-[radial-gradient(#ffffff12_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
 
-              {/* Center Touch Indicator */}
-              <motion.div
-                animate={{ scale: [1, 1.05, 1], opacity: [0.6, 0.9, 0.6] }}
-                transition={{ duration: 3, repeat: Infinity }}
-                className="w-20 h-20 rounded-full bg-amber-400/10 border border-amber-400/30 flex flex-col items-center justify-center text-amber-300 pointer-events-none"
-              >
-                <MousePointer className="w-6 h-6 stroke-[1.8] mb-0.5" />
-                <span className="text-[10px] font-bold tracking-wider">TAP = OK</span>
-              </motion.div>
+              {/* Dynamic Finger Follower Glow */}
+              {fingerFeedbackPos && (
+                <div
+                  className="absolute w-14 h-14 rounded-full bg-amber-400/30 blur-md pointer-events-none transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-75"
+                  style={{
+                    left: `${fingerFeedbackPos.x}px`,
+                    top: `${fingerFeedbackPos.y}px`,
+                  }}
+                />
+              )}
 
-              <div className="absolute bottom-4 text-center pointer-events-none">
-                <p className="text-[11px] font-medium text-stone-300">
-                  Swipe anywhere to navigate TV
+              {/* Center Guidance Icon */}
+              <div className="flex flex-col items-center justify-center text-amber-300 pointer-events-none opacity-80">
+                <div className="w-16 h-16 rounded-full bg-amber-400/10 border border-amber-400/25 flex items-center justify-center mb-2 shadow-inner">
+                  <Navigation className="w-7 h-7 fill-amber-400 rotate-45" />
+                </div>
+                <span className="text-xs font-bold tracking-wider uppercase text-amber-300">
+                  Touchpad Mouse
+                </span>
+                <p className="text-[11px] text-stone-300 font-medium mt-1">
+                  Glide finger to move TV cursor
                 </p>
-                <p className="text-[9px] text-zinc-500 font-mono mt-0.5">
-                  Tap anywhere to select · Fast gesture response
+                <p className="text-[10px] text-zinc-400 font-mono">
+                  Tap anywhere = Click
                 </p>
               </div>
 
-              {/* Dynamic Gesture Feedback Pill */}
-              <AnimatePresence>
-                {lastGesture && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="absolute top-4 px-3 py-1 rounded-full bg-amber-400 text-black text-[10px] font-bold uppercase tracking-wider shadow-lg"
-                  >
-                    {lastGesture.replace('_', ' ')}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Bottom Quick Click Button */}
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => sendCommand('cursor_click')}
+                className="absolute bottom-3 left-4 right-4 py-2.5 rounded-2xl bg-amber-400 active:bg-amber-300 text-black font-bold text-xs shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <MousePointer className="w-3.5 h-3.5" />
+                <span>Click Target [OK]</span>
+              </motion.button>
             </div>
           </div>
         ) : (
           /* ============================================================ */
           /* CLASSIC SPATIAL D-PAD                                        */
           /* ============================================================ */
-          <div className="relative w-64 h-64 rounded-full bg-zinc-900/90 border border-white/15 shadow-2xl flex items-center justify-center p-3">
+          <div className="relative w-68 h-68 rounded-full bg-zinc-900/90 border border-white/15 shadow-2xl flex items-center justify-center p-3">
             {/* UP */}
             <motion.button
               whileTap={{ scale: 0.9 }}
@@ -271,7 +317,7 @@ function RemoteControllerContent() {
         )}
 
         {/* 3. Action Controls Deck */}
-        <div className="flex items-center justify-center gap-3 w-full">
+        <div className="flex items-center justify-center gap-2.5 w-full">
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => sendCommand('back')}
@@ -324,7 +370,7 @@ function RemoteControllerContent() {
 
         {/* 4. Quick Trip Switcher */}
         <div className="w-full">
-          <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-2 px-1">
+          <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5 px-1">
             Jump to Album on TV
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -344,7 +390,7 @@ function RemoteControllerContent() {
 
       {/* Footer */}
       <footer className="text-center text-[10px] text-zinc-500 font-mono py-1">
-        DriveFrame Phone Remote · {controlMode === 'trackpad' ? 'Touchpad Active' : 'D-Pad Active'}
+        DriveFrame Mouse Touchpad · Glide to move cursor · Tap to click
       </footer>
     </div>
   );

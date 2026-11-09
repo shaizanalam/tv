@@ -281,6 +281,14 @@ function CreativeTVContent() {
   const [qrDataUrl, setQrDataUrl] = useState('');
   const lastProcessedCmdTime = useRef(0);
 
+  // TV Mouse Cursor Position from Phone Remote (normalized 0-100%)
+  const [tvCursor, setTvCursor] = useState<{ x: number; y: number; visible: boolean }>({
+    x: 50,
+    y: 50,
+    visible: false,
+  });
+  const cursorHideTimer = useRef<NodeJS.Timeout | null>(null);
+
   // Generate QR Code targeting the /remote page
   useEffect(() => {
     import('qrcode').then(QRCode => {
@@ -380,10 +388,35 @@ function CreativeTVContent() {
               if (idx !== -1) setSelectedAlbumIndex(idx);
               openAlbum(cmd.payload.folderId, cmd.payload.title);
             }
+          } else if (cmd.type === 'cursor_move') {
+            // Smoothly move mouse cursor on TV
+            setTvCursor(prev => {
+              const newX = Math.min(98, Math.max(2, prev.x + (cmd.payload?.dx || 0)));
+              const newY = Math.min(98, Math.max(2, prev.y + (cmd.payload?.dy || 0)));
+              return { x: newX, y: newY, visible: true };
+            });
+
+            if (cursorHideTimer.current) clearTimeout(cursorHideTimer.current);
+            cursorHideTimer.current = setTimeout(() => {
+              setTvCursor(c => ({ ...c, visible: false }));
+            }, 5000);
+          } else if (cmd.type === 'cursor_click') {
+            // Trigger click at cursor coordinates
+            setTvCursor(prev => {
+              if (typeof window !== 'undefined') {
+                const clickX = (prev.x / 100) * window.innerWidth;
+                const clickY = (prev.y / 100) * window.innerHeight;
+                const targetElement = document.elementFromPoint(clickX, clickY) as HTMLElement | null;
+                if (targetElement) {
+                  targetElement.click();
+                }
+              }
+              return { ...prev, visible: true };
+            });
           }
         }
       } catch {}
-    }, 400);
+    }, 120);
 
     return () => clearInterval(pollInterval);
   }, [albums, openAlbum]);
@@ -1126,6 +1159,38 @@ function CreativeTVContent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ========================================================= */}
+      {/* 5. VIRTUAL MOUSE CURSOR OVERLAY (Controllable via Phone)  */}
+      {/* ========================================================= */}
+      {tvCursor.visible && (
+        <motion.div
+          animate={{
+            left: `${tvCursor.x}%`,
+            top: `${tvCursor.y}%`,
+          }}
+          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+          className="fixed pointer-events-none z-50 transform -translate-x-1/2 -translate-y-1/2"
+        >
+          {/* Glowing Cursor Pointer */}
+          <div className="relative">
+            <svg
+              className="w-8 h-8 drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] filter drop-shadow"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M3 3l7 18 3-7 7-3L3 3z"
+                fill="#fbbf24"
+                stroke="#000000"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <div className="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-amber-400 animate-ping opacity-60" />
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }
