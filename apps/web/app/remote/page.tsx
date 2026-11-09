@@ -34,6 +34,7 @@ const TRIP_COLLECTIONS = [
   { id: '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs', name: 'Meccah & Madina' },
   { id: '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp', name: 'GoPro Action' },
   { id: '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC', name: 'Pachmari' },
+  { id: '1OB1CtcFyMd0rukDKwspP5VUpWywWswHW', name: 'Nautanki Resort' },
 ];
 
 function RemoteControllerContent() {

@@ -221,6 +221,38 @@ const VERIFIED_TRIPS: AlbumFolder[] = [
       },
     ],
   },
+  {
+    id: '1OB1CtcFyMd0rukDKwspP5VUpWywWswHW',
+    folderId: '1OB1CtcFyMd0rukDKwspP5VUpWywWswHW',
+    title: 'Nautanki Resort',
+    year: '2026',
+    location: 'Resort Getaway',
+    subtitle: 'Poolside Weekend, Family Celebrations & Scenic Stays',
+    coverFileId: '1oTFr73Wq7gl5sUQDWs4tq8cISEdisX_X',
+    totalCount: 82,
+    photoCount: 70,
+    videoCount: 12,
+    highlightShots: [
+      {
+        fileId: '1oTFr73Wq7gl5sUQDWs4tq8cISEdisX_X',
+        tag: 'POOLSIDE',
+        title: 'Sun & Waters',
+        subtitle: 'Resort Pools & Daylight Vistas',
+      },
+      {
+        fileId: '1uXPw_II7O8N1fPBK39DmvwfJuNLA2xao',
+        tag: 'RESORT VIBES',
+        title: 'Evening Retreat',
+        subtitle: 'Family Gathering & Ambient Lights',
+      },
+      {
+        fileId: '1rSUehUjcDcGKNykFh3OEzQpOJgGRseSA',
+        tag: 'MEMORIES',
+        title: 'Weekend Getaway',
+        subtitle: 'Cozy Stays & Celebrations',
+      },
+    ],
+  },
 ];
 
 type MainTab = 'featured' | 'photos' | 'videos';
@@ -928,8 +960,8 @@ function CinematicTVPlatform() {
           </div>
         </div>
 
-        {/* 5 Landscape Collection Cards */}
-        <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none gap-3 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:gap-3.5 lg:gap-4.5">
+        {/* 6 Landscape Collection Cards */}
+        <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none gap-3 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 lg:grid-cols-6 sm:gap-3.5 lg:gap-4.5">
           {VERIFIED_TRIPS.map((trip, idx) => {
             const isSelected = featuredIndex === idx;
             const isFocused = focusZone === 'cards' && isSelected;
