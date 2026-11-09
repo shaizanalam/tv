@@ -20,6 +20,9 @@ import {
   Moon,
   Sun,
   Video,
+  Smartphone,
+  X,
+  QrCode,
 } from 'lucide-react';
 import { SlideshowPlayer } from '@/components/slideshow/SlideshowPlayer';
 import { TVVideoPlayer } from '@/components/media/TVVideoPlayer';
@@ -274,6 +277,116 @@ function CreativeTVContent() {
 
   const albumPhotosCache = useRef<Map<string, DriveItem[]>>(new Map());
   const [focusSection, setFocusSection] = useState<FocusSection>('slats');
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const lastProcessedCmdTime = useRef(0);
+
+  // Generate QR Code targeting the /remote page
+  useEffect(() => {
+    import('qrcode').then(QRCode => {
+      const remoteUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/remote?pair=482917`;
+      QRCode.default.toDataURL(remoteUrl, {
+        width: 260,
+        margin: 2,
+        color: { dark: '#111215', light: '#fafaf9' },
+      }).then(setQrDataUrl);
+    });
+  }, []);
+
+  // Open Album (Instant if pre-cached!)
+  const openAlbum = useCallback(async (folderId: string, title?: string) => {
+    setLoadingAlbumTitle(title || 'Album');
+    const cachedItems = albumPhotosCache.current.get(folderId);
+
+    if (cachedItems && cachedItems.length > 0) {
+      if (activeMediaTab === 'videos') {
+        const videos = cachedItems.filter(i => i.mimeType?.startsWith('video/') || i.name?.match(/\.(mp4|mov|webm)$/i));
+        if (videos.length > 0) {
+          setActiveVideoPlaylist(videos);
+          setActiveVideoIndex(0);
+          setInVideoPlayer(true);
+          return;
+        }
+      }
+      const photos = cachedItems.filter(i => !i.mimeType?.startsWith('video/'));
+      setActivePhotos(photos.length > 0 ? photos : cachedItems);
+      setInSlideshow(true);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/drive/folder?folder=${encodeURIComponent(folderId)}`);
+      const data = await res.json();
+      if (data.items && data.items.length > 0) {
+        albumPhotosCache.current.set(folderId, data.items);
+        if (activeMediaTab === 'videos') {
+          const videos = data.items.filter((i: DriveItem) => i.mimeType?.startsWith('video/') || i.name?.match(/\.(mp4|mov|webm)$/i));
+          if (videos.length > 0) {
+            setActiveVideoPlaylist(videos);
+            setActiveVideoIndex(0);
+            setInVideoPlayer(true);
+            return;
+          }
+        }
+        const photos = data.items.filter((i: DriveItem) => !i.mimeType?.startsWith('video/'));
+        setActivePhotos(photos.length > 0 ? photos : data.items);
+        setInSlideshow(true);
+      }
+    } catch (err) {
+      console.error('Failed to load album:', err);
+    } finally {
+      setIsLoading(false);
+      setLoadingAlbumTitle('');
+    }
+  }, [activeMediaTab]);
+
+  // Realtime Polling Listener for Phone Remote Commands
+  useEffect(() => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/remote/sync?code=482917&since=${lastProcessedCmdTime.current}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.command && data.command.timestamp > lastProcessedCmdTime.current) {
+          lastProcessedCmdTime.current = data.command.timestamp;
+          const cmd = data.command;
+
+          // Dispatch command to active view
+          if (cmd.type === 'dpad_right') {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+          } else if (cmd.type === 'dpad_left') {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+          } else if (cmd.type === 'dpad_up') {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+          } else if (cmd.type === 'dpad_down') {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+          } else if (cmd.type === 'ok') {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+          } else if (cmd.type === 'back') {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+          } else if (cmd.type === 'play_pause') {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+          } else if (cmd.type === 'skip_next') {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n' }));
+          } else if (cmd.type === 'skip_prev') {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
+          } else if (cmd.type === 'switch_hub') {
+            if (cmd.payload?.tab) setActiveMediaTab(cmd.payload.tab);
+          } else if (cmd.type === 'select_album') {
+            if (cmd.payload?.folderId) {
+              const idx = albums.findIndex(a => a.folderId === cmd.payload.folderId);
+              if (idx !== -1) setSelectedAlbumIndex(idx);
+              openAlbum(cmd.payload.folderId, cmd.payload.title);
+            }
+          }
+        }
+      } catch {}
+    }, 400);
+
+    return () => clearInterval(pollInterval);
+  }, [albums, openAlbum]);
 
   // Clock
   useEffect(() => {
@@ -355,54 +468,6 @@ function CreativeTVContent() {
     setFolderInput(target);
     fetchAlbums(target);
   }, [searchParams, fetchAlbums]);
-
-  // Open Album (Instant if pre-cached!)
-  const openAlbum = async (folderId: string, title?: string) => {
-    setLoadingAlbumTitle(title || 'Album');
-    const cachedItems = albumPhotosCache.current.get(folderId);
-
-    if (cachedItems && cachedItems.length > 0) {
-      if (activeMediaTab === 'videos') {
-        const videos = cachedItems.filter(i => i.mimeType?.startsWith('video/') || i.name?.match(/\.(mp4|mov|webm)$/i));
-        if (videos.length > 0) {
-          setActiveVideoPlaylist(videos);
-          setActiveVideoIndex(0);
-          setInVideoPlayer(true);
-          return;
-        }
-      }
-      const photos = cachedItems.filter(i => !i.mimeType?.startsWith('video/'));
-      setActivePhotos(photos.length > 0 ? photos : cachedItems);
-      setInSlideshow(true);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const res = await fetch(`/api/drive/folder?folder=${encodeURIComponent(folderId)}`);
-      const data = await res.json();
-      if (data.items && data.items.length > 0) {
-        albumPhotosCache.current.set(folderId, data.items);
-        if (activeMediaTab === 'videos') {
-          const videos = data.items.filter((i: DriveItem) => i.mimeType?.startsWith('video/') || i.name?.match(/\.(mp4|mov|webm)$/i));
-          if (videos.length > 0) {
-            setActiveVideoPlaylist(videos);
-            setActiveVideoIndex(0);
-            setInVideoPlayer(true);
-            return;
-          }
-        }
-        const photos = data.items.filter((i: DriveItem) => !i.mimeType?.startsWith('video/'));
-        setActivePhotos(photos.length > 0 ? photos : data.items);
-        setInSlideshow(true);
-      }
-    } catch (err) {
-      console.error('Failed to load album:', err);
-    } finally {
-      setIsLoading(false);
-      setLoadingAlbumTitle('');
-    }
-  };
 
   // Play Master Collection (All 1,899 Photos or all Videos)
   const playMasterCollection = async () => {
@@ -677,8 +742,19 @@ function CreativeTVContent() {
           </div>
         </div>
 
-        {/* Right: Theme Toggle & Search */}
+        {/* Right: QR Remote Badge, Theme Toggle & Search */}
         <div className="flex items-center gap-2.5">
+          {/* Phone Remote QR Button */}
+          <motion.button
+            whileTap={{ scale: 0.92 }}
+            onClick={() => setShowQRModal(true)}
+            className="glass flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer text-amber-400 hover:text-amber-300 transition-colors"
+            title="Control TV from Phone"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Phone Remote</span>
+          </motion.button>
+
           <motion.button
             whileTap={{ scale: 0.92 }}
             onClick={toggleTheme}
@@ -991,6 +1067,65 @@ function CreativeTVContent() {
           {timeStr || '12:48 PM'}
         </div>
       </footer>
+
+      {/* ========================================================= */}
+      {/* 4. PHONE REMOTE QR MODAL POPUP                            */}
+      {/* ========================================================= */}
+      <AnimatePresence>
+        {showQRModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/75 backdrop-blur-md"
+            onClick={() => setShowQRModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 10 }}
+              transition={SPRING_SHEET}
+              onClick={e => e.stopPropagation()}
+              className="glass p-8 rounded-3xl max-w-sm w-full flex flex-col items-center text-center relative shadow-2xl border border-white/20"
+            >
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-stone-300 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-400 mb-4">
+                <Smartphone className="w-6 h-6" />
+              </div>
+
+              <h2 className="text-lg font-bold text-white tracking-tight">
+                Use Phone as TV Remote
+              </h2>
+              <p className="text-xs text-stone-300/80 mt-1 max-w-xs">
+                Scan with your phone camera to touch-control photos, videos, and albums.
+              </p>
+
+              {/* QR Code Canvas Frame */}
+              <div className="mt-5 p-3 rounded-2xl bg-white shadow-xl flex items-center justify-center">
+                {qrDataUrl ? (
+                  <img src={qrDataUrl} alt="Pairing QR Code" className="w-48 h-48 rounded-lg" />
+                ) : (
+                  <div className="w-48 h-48 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 flex items-center gap-2 text-[11px] font-mono text-amber-300 bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20">
+                <span>Code: 482917</span>
+                <span>·</span>
+                <span>No app required</span>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
