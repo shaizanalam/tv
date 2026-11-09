@@ -67,9 +67,9 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for static files
+     * Match all request paths except for static files and media stream endpoints
+     * (Media endpoints perform direct high-performance session validation to preserve HTTP 206 Content-Length)
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/drive/video|api/drive/image).*)',
   ],
 };
-

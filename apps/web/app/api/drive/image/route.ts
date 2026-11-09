@@ -1,10 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/auth';
 
 // Server-side in-memory cache for ultra-fast instant image responses
 const imageCache = new Map<string, { buffer: Buffer; contentType: string; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days cache
 
 export async function GET(req: NextRequest) {
+  // Session Authentication Check
+  const sessionCookie = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+  if (!sessionCookie) {
+    return NextResponse.json(
+      { error: 'Unauthorized', message: 'Family authentication required' },
+      { status: 401 }
+    );
+  }
+  const { valid } = await verifySessionToken(sessionCookie);
+  if (!valid) {
+    return NextResponse.json(
+      { error: 'Unauthorized', message: 'Invalid or expired session' },
+      { status: 401 }
+    );
+  }
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
   const size = searchParams.get('sz') || '1200';
@@ -49,19 +66,24 @@ export async function GET(req: NextRequest) {
         const arrayBuffer = await res.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // Store in memory cache
-        imageCache.set(id, { buffer, contentType, timestamp: Date.now() });
+        imageCache.set(cacheKey, {
+          buffer,
+          contentType,
+          timestamp: Date.now(),
+        });
 
         return new NextResponse(new Uint8Array(buffer), {
           headers: {
             'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=86400, s-maxage=86400, immutable',
+            'Cache-Control': 'public, max-age=604800, s-maxage=604800, immutable',
             'X-Proxy-Cache': 'MISS',
           },
         });
       }
-    } catch {}
+    } catch {
+      // Try next CDN source
+    }
   }
 
-  return NextResponse.json({ error: 'Failed to retrieve image from Google Drive' }, { status: 502 });
+  return NextResponse.json({ error: 'Image not accessible' }, { status: 404 });
 }
