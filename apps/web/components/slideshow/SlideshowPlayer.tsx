@@ -11,8 +11,6 @@ import {
   Frame,
   ChevronRight,
   ChevronLeft,
-  Volume2,
-  VolumeX,
   Maximize2,
   Minimize2,
   Sparkles,
@@ -445,25 +443,6 @@ export function SlideshowPlayer({
                 </>
               )}
             </button>
-
-            {isCurrentVideo && (
-              <>
-                <span className="text-white/30">|</span>
-                {/* Audio Mute/Unmute */}
-                <button
-                  onClick={() => setIsMuted(m => !m)}
-                  className="pointer-events-auto flex items-center gap-1.5 text-xs font-medium hover:text-white transition-colors cursor-pointer"
-                  title="Toggle Audio (M key)"
-                >
-                  {isMuted ? (
-                    <VolumeX className="w-3.5 h-3.5 text-red-400" />
-                  ) : (
-                    <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-                  )}
-                  <span>{isMuted ? 'Muted' : 'Audio On'}</span>
-                </button>
-              </>
-            )}
 
             <span className="text-white/30">|</span>
 

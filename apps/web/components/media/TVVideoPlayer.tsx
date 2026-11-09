@@ -6,13 +6,11 @@ import {
   Play,
   Pause,
   ArrowLeft,
-  Volume2,
-  VolumeX,
   SkipForward,
   SkipBack,
   RotateCcw,
   Film,
-  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { DriveItem } from '@/lib/types';
 
@@ -35,14 +33,19 @@ export function TVVideoPlayer({
 }: TVVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showHUD, setShowHUD] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // 100% Native Same-Origin Stream (zero CORS/CORP blocking, zero external iframe redirects)
+  // 100% Native Same-Origin Stream with sub-second Google Edge CDN redirect
   const videoStreamSrc = `/api/drive/video?id=${video.fileId || video.id}`;
+
+  // Instant High-Res Poster to eliminate black screen
+  const posterUrl = video.thumbnailLink
+    ? video.thumbnailLink.replace(/=s\d+/, '=s1200')
+    : `/api/drive/image?id=${video.fileId || video.id}`;
 
   // Auto-hide HUD after 4.5 seconds of inactivity
   useEffect(() => {
@@ -51,21 +54,45 @@ export function TVVideoPlayer({
     return () => clearTimeout(timer);
   }, [showHUD, isPlaying]);
 
-  // Reset player state when video changes
+  // Reset player state & enforce Full Volume (1.0) with zero mute button
   useEffect(() => {
     setHasError(false);
+    setIsBuffering(true);
     setCurrentTime(0);
     setIsPlaying(true);
+
     if (videoRef.current) {
+      // Auto set to full volume (100%)
+      videoRef.current.volume = 1.0;
+      videoRef.current.muted = false;
+
       videoRef.current.load();
-      videoRef.current.play().catch(() => {
-        // Handle TV browser autoplay policy (mute and play)
-        if (videoRef.current) {
-          videoRef.current.muted = true;
-          setIsMuted(true);
-          videoRef.current.play().catch(() => {});
-        }
-      });
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsBuffering(false);
+          })
+          .catch(() => {
+            // If browser blocks unmuted autoplay without prior interaction:
+            // Start playback and immediately unmute on first TV remote click or key
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              videoRef.current.play().then(() => {
+                const enableFullAudio = () => {
+                  if (videoRef.current) {
+                    videoRef.current.muted = false;
+                    videoRef.current.volume = 1.0;
+                  }
+                  window.removeEventListener('keydown', enableFullAudio);
+                  window.removeEventListener('click', enableFullAudio);
+                };
+                window.addEventListener('keydown', enableFullAudio, { once: true });
+                window.addEventListener('click', enableFullAudio, { once: true });
+              }).catch(() => {});
+            }
+          });
+      }
     }
   }, [video.id, video.fileId]);
 
@@ -95,7 +122,10 @@ export function TVVideoPlayer({
         case 'ArrowRight':
           e.preventDefault();
           if (videoRef.current) {
-            videoRef.current.currentTime = Math.min(videoRef.current.duration || 0, videoRef.current.currentTime + 10);
+            videoRef.current.currentTime = Math.min(
+              videoRef.current.duration || 0,
+              videoRef.current.currentTime + 10
+            );
           }
           break;
         case 'ArrowLeft':
@@ -106,17 +136,16 @@ export function TVVideoPlayer({
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setIsMuted(false);
-          if (videoRef.current) videoRef.current.volume = Math.min(1, videoRef.current.volume + 0.1);
+          if (videoRef.current) {
+            videoRef.current.muted = false;
+            videoRef.current.volume = Math.min(1.0, videoRef.current.volume + 0.1);
+          }
           break;
         case 'ArrowDown':
           e.preventDefault();
-          if (videoRef.current) videoRef.current.volume = Math.max(0, videoRef.current.volume - 0.1);
-          break;
-        case 'm':
-        case 'M':
-          e.preventDefault();
-          setIsMuted(prev => !prev);
+          if (videoRef.current) {
+            videoRef.current.volume = Math.max(0.1, videoRef.current.volume - 0.1);
+          }
           break;
         case 'n':
         case 'N':
@@ -134,7 +163,7 @@ export function TVVideoPlayer({
           onExit();
           break;
         default:
-          if (e.keyCode === 10009 || e.keyCode === 461) {
+          if (e.keyCode === 10009 || e.keyCode === 461 || e.keyCode === 4) {
             e.preventDefault();
             onExit();
           }
@@ -160,23 +189,48 @@ export function TVVideoPlayer({
       className="relative w-screen h-screen bg-[#0c0d10] select-none overflow-hidden flex items-center justify-center font-sans"
       onClick={() => setShowHUD(true)}
     >
-      {/* 100% Native In-App Cinema Video Element */}
+      {/* 100% Native In-App Cinema Video Element with Poster Frame */}
       <video
         ref={videoRef}
         src={videoStreamSrc}
+        poster={posterUrl}
+        preload="auto"
         autoPlay
         playsInline
-        muted={isMuted}
+        onLoadStart={() => setIsBuffering(true)}
+        onWaiting={() => setIsBuffering(true)}
+        onCanPlay={() => setIsBuffering(false)}
+        onPlaying={() => {
+          setIsBuffering(false);
+          setIsPlaying(true);
+        }}
         onTimeUpdate={() => {
           if (videoRef.current) {
             setCurrentTime(videoRef.current.currentTime);
             setDuration(videoRef.current.duration || 0);
+            if (isBuffering) setIsBuffering(false);
           }
         }}
         onEnded={onNext}
-        onError={() => setHasError(true)}
+        onError={() => {
+          console.warn('Video failed to stream directly:', videoRef.current?.error);
+          setHasError(true);
+          setIsBuffering(false);
+        }}
         className="w-full h-full object-contain"
       />
+
+      {/* Instant Stream Loading Badge (Eliminates the black screen feeling) */}
+      {isBuffering && !hasError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+          <div className="px-5 py-3.5 rounded-2xl bg-[#101113]/85 backdrop-blur-md border border-[#303238] flex items-center gap-3 shadow-2xl">
+            <Loader2 className="w-5 h-5 animate-spin text-[#D8C6A1]" />
+            <span className="text-xs font-mono text-[#F5F5F2] tracking-wide">
+              Loading Cinema Stream…
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Internal In-App Error Overlay (Never opens Google Drive) */}
       {hasError && (
@@ -194,6 +248,7 @@ export function TVVideoPlayer({
             <button
               onClick={() => {
                 setHasError(false);
+                setIsBuffering(true);
                 if (videoRef.current) {
                   videoRef.current.load();
                   videoRef.current.play().catch(() => {});
@@ -215,7 +270,7 @@ export function TVVideoPlayer({
         </div>
       )}
 
-      {/* Ambient Cinema HUD */}
+      {/* Ambient Cinema HUD (NO Mute Button - Auto Full Volume) */}
       <AnimatePresence>
         {showHUD && !hasError && (
           <motion.div
@@ -225,31 +280,24 @@ export function TVVideoPlayer({
             transition={{ duration: 0.2 }}
             className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8 lg:p-12 z-10"
             style={{
-              background: 'linear-gradient(to bottom, rgba(12,13,16,0.8) 0%, transparent 25%, transparent 70%, rgba(12,13,16,0.9) 100%)',
+              background:
+                'linear-gradient(to bottom, rgba(12,13,16,0.8) 0%, transparent 25%, transparent 70%, rgba(12,13,16,0.9) 100%)',
             }}
           >
-            {/* Top Bar */}
+            {/* Top Bar with Exit and Clip Counter (No Mute Button) */}
             <div className="flex items-center justify-between pointer-events-auto">
               <button
                 onClick={onExit}
-                className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] backdrop-blur-md text-[#F5F5F2] text-xs font-semibold cursor-pointer border border-[#303238]"
+                className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] backdrop-blur-md text-[#F5F5F2] text-xs font-semibold cursor-pointer border border-[#303238] transition-colors"
               >
                 <ArrowLeft className="w-4 h-4 text-[#D8C6A1]" />
                 <span>Exit Video</span>
               </button>
 
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-mono text-[#A3A6AD]">
+              <div className="flex items-center gap-2 bg-[#191B1F]/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[#303238]">
+                <span className="text-xs font-mono text-[#D8C6A1]">
                   Clip {currentIndex + 1} of {playlist.length}
                 </span>
-
-                <button
-                  onClick={() => setIsMuted(prev => !prev)}
-                  className="w-9 h-9 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] backdrop-blur-md flex items-center justify-center text-[#F5F5F2] cursor-pointer border border-[#303238]"
-                  title={isMuted ? 'Unmute' : 'Mute'}
-                >
-                  {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-[#D8C6A1]" />}
-                </button>
               </div>
             </div>
 
@@ -260,7 +308,7 @@ export function TVVideoPlayer({
                   {cleanTitle}
                 </h1>
                 <p className="text-xs text-[#A3A6AD] font-light mt-0.5">
-                  Remote D-pad: [Left/Right] seek 10s · [OK] Pause · [Down] Volume
+                  Remote D-pad: [Left/Right] seek 10s · [OK] Pause · [Up/Down] Volume
                 </p>
               </div>
 
@@ -293,7 +341,7 @@ export function TVVideoPlayer({
               <div className="flex items-center justify-center gap-4 pt-1">
                 <button
                   onClick={onPrev}
-                  className="p-2 text-[#A3A6AD] hover:text-[#F5F5F2] cursor-pointer"
+                  className="p-2 text-[#A3A6AD] hover:text-[#F5F5F2] cursor-pointer transition-colors"
                   title="Previous Clip"
                 >
                   <SkipBack className="w-5 h-5" />
@@ -310,7 +358,7 @@ export function TVVideoPlayer({
                 </button>
                 <button
                   onClick={onNext}
-                  className="p-2 text-[#A3A6AD] hover:text-[#F5F5F2] cursor-pointer"
+                  className="p-2 text-[#A3A6AD] hover:text-[#F5F5F2] cursor-pointer transition-colors"
                   title="Next Clip"
                 >
                   <SkipForward className="w-5 h-5" />
