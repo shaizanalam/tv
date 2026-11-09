@@ -24,6 +24,7 @@ import {
   ArrowLeft,
   Smartphone,
   Navigation,
+  LogOut,
 } from 'lucide-react';
 
 const TRIP_COLLECTIONS = [
@@ -219,25 +220,39 @@ function RemoteControllerContent() {
           </div>
         </div>
 
-        {/* Mode Selector: Mouse Cursor vs D-Pad */}
-        <div className="flex items-center bg-zinc-900 border border-white/10 p-1 rounded-full gap-1">
+        <div className="flex items-center gap-2">
+          {/* Mode Selector: Mouse Cursor vs D-Pad */}
+          <div className="flex items-center bg-zinc-900 border border-white/10 p-1 rounded-full gap-1">
+            <button
+              onClick={() => setControlMode('cursor')}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold cursor-pointer transition-all ${
+                controlMode === 'cursor' ? 'bg-amber-400 text-black shadow-sm' : 'text-zinc-400'
+              }`}
+            >
+              <Navigation className="w-3 h-3 fill-current rotate-45" />
+              <span>Mouse</span>
+            </button>
+            <button
+              onClick={() => setControlMode('dpad')}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold cursor-pointer transition-all ${
+                controlMode === 'dpad' ? 'bg-amber-400 text-black shadow-sm' : 'text-zinc-400'
+              }`}
+            >
+              <Grid className="w-3 h-3" />
+              <span>D-Pad</span>
+            </button>
+          </div>
+
+          {/* Lock Vault / Sign Out */}
           <button
-            onClick={() => setControlMode('cursor')}
-            className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold cursor-pointer transition-all ${
-              controlMode === 'cursor' ? 'bg-amber-400 text-black shadow-sm' : 'text-zinc-400'
-            }`}
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              window.location.href = '/login';
+            }}
+            className="w-8 h-8 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-amber-400 cursor-pointer"
+            title="Lock Vault & Sign Out"
           >
-            <Navigation className="w-3 h-3 fill-current rotate-45" />
-            <span>Mouse Cursor</span>
-          </button>
-          <button
-            onClick={() => setControlMode('dpad')}
-            className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold cursor-pointer transition-all ${
-              controlMode === 'dpad' ? 'bg-amber-400 text-black shadow-sm' : 'text-zinc-400'
-            }`}
-          >
-            <Grid className="w-3 h-3" />
-            <span>D-Pad</span>
+            <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
       </header>

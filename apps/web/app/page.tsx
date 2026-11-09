@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Tv, Play, Search, Moon, Sun } from 'lucide-react';
+import { Tv, Play, Search, Moon, Sun, LogOut } from 'lucide-react';
 
 const FEATURED_ALBUMS = [
   {
@@ -108,6 +108,17 @@ export default function HomePage() {
             ) : (
               <Sun className="w-4 h-4" style={{ color: 'var(--accent)' }} />
             )}
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              window.location.href = '/login';
+            }}
+            className="w-9 h-9 rounded-full glass flex items-center justify-center cursor-pointer text-stone-400 hover:text-amber-400 transition-colors"
+            title="Lock Vault & Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
           </motion.button>
           <Link
             href="/tv"

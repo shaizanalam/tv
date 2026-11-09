@@ -20,6 +20,7 @@ import {
   VolumeX,
   X,
   Tv,
+  LogOut,
 } from 'lucide-react';
 import { SlideshowPlayer } from '@/components/slideshow/SlideshowPlayer';
 import { TVVideoPlayer } from '@/components/media/TVVideoPlayer';
@@ -591,7 +592,7 @@ function CinematicTVPlatform() {
           </button>
         </nav>
 
-        {/* Right Utility: QR Remote Pill */}
+        {/* Right Utility: QR Remote Pill & Lock Button */}
         <div className="flex items-center gap-3">
           <motion.button
             whileTap={{ scale: 0.95 }}
@@ -600,6 +601,18 @@ function CinematicTVPlatform() {
           >
             <Smartphone className="w-3.5 h-3.5" />
             <span>Phone Remote</span>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              window.location.href = '/login';
+            }}
+            className="w-8 h-8 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] border border-[#303238] flex items-center justify-center text-[#A3A6AD] hover:text-[#D8C6A1] cursor-pointer shadow-sm transition-colors"
+            title="Lock Vault & Sign Out"
+          >
+            <LogOut className="w-3.5 h-3.5" />
           </motion.button>
         </div>
       </header>
