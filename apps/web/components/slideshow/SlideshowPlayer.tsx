@@ -269,30 +269,30 @@ export function SlideshowPlayer({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Subtle Cinematic Ken Burns or Crossfade
+  // Subtle Cinematic Ken Burns or Crossfade with GPU-friendly hardware acceleration
   const variants = useMemo(() => {
     if (transitionStyle === 'ken_burns' && !isArtFrame) {
       return {
         initial: { opacity: 0, scale: 1.0 },
         animate: {
           opacity: 1,
-          scale: 1.08,
+          scale: 1.05,
           transition: {
-            opacity: { duration: 1.2, ease: 'easeInOut' as const },
-            scale: { duration: duration + 1, ease: 'linear' as const },
+            opacity: { duration: 0.8, ease: 'easeOut' as const },
+            scale: { duration: duration + 0.5, ease: 'linear' as const },
           },
         },
         exit: {
           opacity: 0,
-          transition: { duration: 0.9, ease: 'easeInOut' as const },
+          transition: { duration: 0.5, ease: 'easeIn' as const },
         },
       };
     }
 
     return {
       initial: { opacity: 0 },
-      animate: { opacity: 1, transition: { duration: 1.0, ease: 'easeInOut' as const } },
-      exit: { opacity: 0, transition: { duration: 0.8, ease: 'easeInOut' as const } },
+      animate: { opacity: 1, transition: { duration: 0.5, ease: 'easeOut' as const } },
+      exit: { opacity: 0, transition: { duration: 0.35, ease: 'easeIn' as const } },
     };
   }, [transitionStyle, duration, isArtFrame]);
 
