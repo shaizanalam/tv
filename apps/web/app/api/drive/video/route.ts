@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Server-side in-memory cache for resolved Google CDN video URLs (6 hours TTL)
+// Server-side in-memory cache for resolved Google CDN video URLs (15 minutes TTL to avoid expired tokens/UUIDs)
 const videoUrlCache = new Map<string, { url: string; timestamp: number }>();
-const CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6 hours
+const CACHE_TTL_MS = 1000 * 60 * 15; // 15 minutes
 
-const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunk size for instantaneous buffering, zero lag, and deep playhead buffer
-
-// Helper to resolve the authenticated direct Google CDN download URL (bypasses virus warnings)
+// Helper to resolve the direct Google CDN download URL (bypassing virus warnings and confirmation gates)
 async function resolveGoogleDownloadUrl(fileId: string, forceFresh = false): Promise<string> {
   if (!forceFresh) {
     const cached = videoUrlCache.get(fileId);
@@ -58,89 +56,69 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Video ID is required' }, { status: 400 });
   }
 
-  const rangeHeader = req.headers.get('range');
+  const clientRange = req.headers.get('range');
+  const targetRange = clientRange || 'bytes=0-';
 
   try {
-    // 1. Calculate byte range for instant delivery
-    let start = 0;
-    let end: number | undefined;
-
-    if (rangeHeader) {
-      const match = rangeHeader.match(/bytes=(\d+)-(\d+)?/);
-      if (match) {
-        start = parseInt(match[1], 10);
-        if (match[2]) {
-          end = parseInt(match[2], 10);
-        }
-      }
-    }
-
-    // Limit chunk size so video starts playing immediately and memory stays low
-    const targetEnd =
-      end !== undefined ? Math.min(end, start + CHUNK_SIZE - 1) : start + CHUNK_SIZE - 1;
-    const driveRange = `bytes=${start}-${targetEnd}`;
-
     let targetUrl = await resolveGoogleDownloadUrl(id);
 
     let driveRes = await fetch(targetUrl, {
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Range: driveRange,
+        Range: targetRange,
       },
     });
 
-    // If cached URL was invalidated by Google, force refresh and retry once
-    if (driveRes.status === 403 || driveRes.status === 404) {
+    // If cached URL was invalidated by Google or returned HTML, force refresh and retry immediately
+    let contentType = driveRes.headers.get('content-type') || '';
+    if (driveRes.status === 403 || driveRes.status === 404 || contentType.includes('text/html')) {
       targetUrl = await resolveGoogleDownloadUrl(id, true);
       driveRes = await fetch(targetUrl, {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          Range: driveRange,
+          Range: targetRange,
         },
       });
+      contentType = driveRes.headers.get('content-type') || '';
     }
 
-    let contentType = driveRes.headers.get('content-type') || 'video/mp4';
-
-    // If Google returned an HTML page unexpectedly, refresh token once
-    if (contentType.includes('text/html')) {
-      targetUrl = await resolveGoogleDownloadUrl(id, true);
-      driveRes = await fetch(targetUrl, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          Range: driveRange,
-        },
-      });
-      contentType = driveRes.headers.get('content-type') || 'video/mp4';
+    // Safety guard: never serve HTML virus scan pages to the HTML5 video element
+    if (contentType.includes('text/html') || !driveRes.ok && driveRes.status !== 206) {
+      console.warn('Google Drive returned unexpected non-video response:', driveRes.status, contentType);
+      return NextResponse.json(
+        { error: 'Video stream temporarily unavailable from Google CDN' },
+        { status: 502 }
+      );
     }
-
-    const contentRange = driveRes.headers.get('content-range');
-    const buffer = await driveRes.arrayBuffer();
 
     const responseHeaders = new Headers();
     responseHeaders.set(
       'Content-Type',
       contentType.includes('video/') ? contentType : 'video/mp4'
     );
-    responseHeaders.set('Content-Length', String(buffer.byteLength));
     responseHeaders.set('Accept-Ranges', 'bytes');
-    responseHeaders.set('Cache-Control', 'public, max-age=14400, must-revalidate');
+    responseHeaders.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
     responseHeaders.set('Access-Control-Allow-Origin', '*');
+    responseHeaders.set(
+      'Access-Control-Expose-Headers',
+      'Content-Range, Content-Length, Accept-Ranges'
+    );
 
-    if (contentRange) {
-      responseHeaders.set('Content-Range', contentRange);
-    } else {
-      responseHeaders.set(
-        'Content-Range',
-        `bytes ${start}-${start + buffer.byteLength - 1}/${buffer.byteLength}`
-      );
+    const contentLength = driveRes.headers.get('content-length');
+    if (contentLength) {
+      responseHeaders.set('Content-Length', contentLength);
     }
 
-    return new Response(buffer, {
-      status: 206,
+    const contentRange = driveRes.headers.get('content-range');
+    if (contentRange) {
+      responseHeaders.set('Content-Range', contentRange);
+    }
+
+    // Pass the native ReadableStream directly to client with zero intermediate buffering
+    return new Response(driveRes.body, {
+      status: driveRes.status === 200 || driveRes.status === 206 ? driveRes.status : 206,
       headers: responseHeaders,
     });
   } catch (err) {
@@ -157,7 +135,7 @@ export async function HEAD(req: NextRequest) {
   const headers = new Headers();
   headers.set('Content-Type', 'video/mp4');
   headers.set('Accept-Ranges', 'bytes');
-  headers.set('Cache-Control', 'public, max-age=14400');
+  headers.set('Cache-Control', 'public, max-age=86400');
   headers.set('Access-Control-Allow-Origin', '*');
   return new Response(null, { status: 200, headers });
 }

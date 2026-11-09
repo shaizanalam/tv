@@ -197,25 +197,25 @@ function RemoteControllerContent() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#0c0d10] text-stone-100 flex flex-col justify-between p-4 sm:p-5 select-none font-sans">
+    <div className="min-h-[100dvh] w-full bg-[#101113] text-[#F5F5F2] flex flex-col justify-between p-4 sm:p-5 select-none font-sans">
       {/* 1. Header with prominent Back Button & Status */}
-      <header className="flex items-center justify-between pb-3 border-b border-white/10">
+      <header className="flex items-center justify-between pb-3 border-b border-[#303238]">
         <div className="flex items-center gap-2.5">
           {/* Prominent Back Button */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => sendCommand('back')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-400 text-black font-bold text-xs cursor-pointer shadow-md active:bg-amber-300"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#D8C6A1] hover:bg-[#E4D5B5] text-[#101113] font-bold text-xs cursor-pointer shadow-md active:bg-[#E4D5B5] transition-colors"
             title="Back / Exit on TV"
           >
             <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
-            <span>Back</span>
+            <span>TV</span>
           </motion.button>
 
           <div>
-            <AlamsFrameLogo className="h-4.5 w-auto text-amber-400" />
-            <p className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <AlamsFrameLogo className="h-4.5 w-auto text-[#D8C6A1]" />
+            <p className="text-[10px] text-[#D8C6A1] font-mono flex items-center gap-1 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#D8C6A1] animate-pulse" />
               Connected · #{pairCode}
             </p>
           </div>
@@ -223,11 +223,13 @@ function RemoteControllerContent() {
 
         <div className="flex items-center gap-2">
           {/* Mode Selector: Mouse Cursor vs D-Pad */}
-          <div className="flex items-center bg-zinc-900 border border-white/10 p-1 rounded-full gap-1">
+          <div className="flex items-center bg-[#191B1F] border border-[#303238] p-1 rounded-full gap-1 shadow-inner">
             <button
               onClick={() => setControlMode('cursor')}
               className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold cursor-pointer transition-all ${
-                controlMode === 'cursor' ? 'bg-amber-400 text-black shadow-sm' : 'text-zinc-400'
+                controlMode === 'cursor'
+                  ? 'bg-[#D8C6A1] text-[#101113] shadow-sm'
+                  : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
               }`}
             >
               <Navigation className="w-3 h-3 fill-current rotate-45" />
@@ -236,7 +238,9 @@ function RemoteControllerContent() {
             <button
               onClick={() => setControlMode('dpad')}
               className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold cursor-pointer transition-all ${
-                controlMode === 'dpad' ? 'bg-amber-400 text-black shadow-sm' : 'text-zinc-400'
+                controlMode === 'dpad'
+                  ? 'bg-[#D8C6A1] text-[#101113] shadow-sm'
+                  : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
               }`}
             >
               <Grid className="w-3 h-3" />
@@ -250,7 +254,7 @@ function RemoteControllerContent() {
               await fetch('/api/auth/logout', { method: 'POST' });
               window.location.href = '/login';
             }}
-            className="w-8 h-8 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-amber-400 cursor-pointer"
+            className="w-8 h-8 rounded-full bg-[#191B1F] border border-[#303238] flex items-center justify-center text-[#A3A6AD] hover:text-[#D8C6A1] cursor-pointer transition-colors shadow-sm"
             title="Lock Vault & Sign Out"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -270,15 +274,15 @@ function RemoteControllerContent() {
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className="relative w-full h-80 rounded-3xl bg-gradient-to-b from-zinc-800/90 to-zinc-950 border-2 border-white/20 shadow-2xl flex flex-col items-center justify-center p-6 cursor-crosshair touch-none active:border-amber-400/60 transition-colors overflow-hidden"
+              className="relative w-full h-80 rounded-3xl bg-[#191B1F] border border-[#303238] shadow-2xl flex flex-col items-center justify-center p-6 cursor-crosshair touch-none active:border-[#D8C6A1]/60 transition-colors overflow-hidden"
             >
               {/* Subtle Precision Grid Lines */}
-              <div className="absolute inset-0 rounded-3xl bg-[radial-gradient(#ffffff12_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
+              <div className="absolute inset-0 rounded-3xl bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
 
               {/* Dynamic Finger Follower Glow */}
               {fingerFeedbackPos && (
                 <div
-                  className="absolute w-14 h-14 rounded-full bg-amber-400/30 blur-md pointer-events-none transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-75"
+                  className="absolute w-14 h-14 rounded-full bg-[#D8C6A1]/25 blur-md pointer-events-none transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-75"
                   style={{
                     left: `${fingerFeedbackPos.x}px`,
                     top: `${fingerFeedbackPos.y}px`,
@@ -287,17 +291,17 @@ function RemoteControllerContent() {
               )}
 
               {/* Center Guidance Icon */}
-              <div className="flex flex-col items-center justify-center text-amber-300 pointer-events-none opacity-80">
-                <div className="w-16 h-16 rounded-full bg-amber-400/10 border border-amber-400/25 flex items-center justify-center mb-2 shadow-inner">
-                  <Navigation className="w-7 h-7 fill-amber-400 rotate-45" />
+              <div className="flex flex-col items-center justify-center text-[#D8C6A1] pointer-events-none opacity-85">
+                <div className="w-16 h-16 rounded-2xl bg-[#D8C6A1]/10 border border-[#D8C6A1]/25 flex items-center justify-center mb-2 shadow-inner">
+                  <Navigation className="w-7 h-7 fill-[#D8C6A1] rotate-45" />
                 </div>
-                <span className="text-xs font-bold tracking-wider uppercase text-amber-300">
+                <span className="text-xs font-bold tracking-wider uppercase text-[#D8C6A1]">
                   Touchpad Mouse
                 </span>
-                <p className="text-[11px] text-stone-300 font-medium mt-1">
+                <p className="text-[11px] text-[#F5F5F2] font-medium mt-1">
                   Glide finger to move TV cursor
                 </p>
-                <p className="text-[10px] text-zinc-400 font-mono">
+                <p className="text-[10px] text-[#A3A6AD] font-mono">
                   Tap anywhere = Click
                 </p>
               </div>
@@ -306,7 +310,7 @@ function RemoteControllerContent() {
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={() => sendCommand('cursor_click')}
-                className="absolute bottom-3 left-4 right-4 py-2.5 rounded-2xl bg-amber-400 active:bg-amber-300 text-black font-bold text-xs shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                className="absolute bottom-3 left-4 right-4 py-2.5 rounded-2xl bg-[#D8C6A1] active:bg-[#E4D5B5] text-[#101113] font-bold text-xs shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <MousePointer className="w-3.5 h-3.5" />
                 <span>Click Target [OK]</span>
@@ -317,12 +321,12 @@ function RemoteControllerContent() {
           /* ============================================================ */
           /* CLASSIC SPATIAL D-PAD                                        */
           /* ============================================================ */
-          <div className="relative w-68 h-68 rounded-full bg-zinc-900/90 border border-white/15 shadow-2xl flex items-center justify-center p-3">
+          <div className="relative w-68 h-68 rounded-full bg-[#191B1F] border border-[#303238] shadow-2xl flex items-center justify-center p-3">
             {/* UP */}
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => sendCommand('dpad_up')}
-              className="absolute top-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
+              className="absolute top-2 w-14 h-14 rounded-full bg-white/5 active:bg-[#D8C6A1]/30 flex items-center justify-center text-[#A3A6AD] active:text-[#D8C6A1] cursor-pointer transition-colors"
             >
               <ChevronUp className="w-7 h-7" />
             </motion.button>
@@ -331,7 +335,7 @@ function RemoteControllerContent() {
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => sendCommand('dpad_down')}
-              className="absolute bottom-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
+              className="absolute bottom-2 w-14 h-14 rounded-full bg-white/5 active:bg-[#D8C6A1]/30 flex items-center justify-center text-[#A3A6AD] active:text-[#D8C6A1] cursor-pointer transition-colors"
             >
               <ChevronDown className="w-7 h-7" />
             </motion.button>
@@ -340,7 +344,7 @@ function RemoteControllerContent() {
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => sendCommand('dpad_left')}
-              className="absolute left-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
+              className="absolute left-2 w-14 h-14 rounded-full bg-white/5 active:bg-[#D8C6A1]/30 flex items-center justify-center text-[#A3A6AD] active:text-[#D8C6A1] cursor-pointer transition-colors"
             >
               <ChevronLeft className="w-7 h-7" />
             </motion.button>
@@ -349,7 +353,7 @@ function RemoteControllerContent() {
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => sendCommand('dpad_right')}
-              className="absolute right-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
+              className="absolute right-2 w-14 h-14 rounded-full bg-white/5 active:bg-[#D8C6A1]/30 flex items-center justify-center text-[#A3A6AD] active:text-[#D8C6A1] cursor-pointer transition-colors"
             >
               <ChevronRight className="w-7 h-7" />
             </motion.button>
@@ -358,7 +362,7 @@ function RemoteControllerContent() {
             <motion.button
               whileTap={{ scale: 0.88 }}
               onClick={() => sendCommand('ok')}
-              className="w-22 h-22 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 text-black font-bold text-base shadow-xl flex items-center justify-center cursor-pointer border-2 border-amber-200"
+              className="w-22 h-22 rounded-full bg-[#D8C6A1] active:bg-[#E4D5B5] text-[#101113] font-bold text-base shadow-xl flex items-center justify-center cursor-pointer border-2 border-[#E4D5B5]"
             >
               OK
             </motion.button>
@@ -370,16 +374,16 @@ function RemoteControllerContent() {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => sendCommand('back')}
-            className="flex-1 py-3 px-3 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center gap-1.5 text-xs font-semibold text-zinc-300 active:text-amber-400 cursor-pointer shadow"
+            className="flex-1 py-3 px-3 rounded-2xl bg-[#191B1F] border border-[#303238] flex items-center justify-center gap-1.5 text-xs font-semibold text-[#F5F5F2] active:text-[#D8C6A1] cursor-pointer shadow-sm transition-colors"
           >
-            <CornerUpLeft className="w-4 h-4" />
+            <CornerUpLeft className="w-4 h-4 text-[#D8C6A1]" />
             <span>Back</span>
           </motion.button>
 
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => sendCommand('skip_prev')}
-            className="w-12 h-12 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center text-zinc-300 active:text-amber-400 cursor-pointer shadow"
+            className="w-12 h-12 rounded-2xl bg-[#191B1F] border border-[#303238] flex items-center justify-center text-[#A3A6AD] active:text-[#D8C6A1] cursor-pointer shadow-sm transition-colors"
             title="Previous"
           >
             <SkipBack className="w-5 h-5" />
@@ -388,7 +392,7 @@ function RemoteControllerContent() {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => sendCommand('play_pause')}
-            className="w-14 h-12 rounded-2xl bg-amber-400 text-black font-semibold flex items-center justify-center cursor-pointer shadow-lg active:scale-95"
+            className="w-14 h-12 rounded-2xl bg-[#D8C6A1] text-[#101113] font-semibold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-transform"
             title="Play/Pause"
           >
             <Play className="w-5 h-5 fill-current ml-0.5" />
@@ -397,7 +401,7 @@ function RemoteControllerContent() {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => sendCommand('skip_next')}
-            className="w-12 h-12 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center text-zinc-300 active:text-amber-400 cursor-pointer shadow"
+            className="w-12 h-12 rounded-2xl bg-[#191B1F] border border-[#303238] flex items-center justify-center text-[#A3A6AD] active:text-[#D8C6A1] cursor-pointer shadow-sm transition-colors"
             title="Next"
           >
             <SkipForward className="w-5 h-5" />
@@ -410,16 +414,16 @@ function RemoteControllerContent() {
               setActiveTab(nextTab);
               sendCommand('switch_hub', { tab: nextTab });
             }}
-            className="flex-1 py-3 px-3 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center gap-1 text-xs font-semibold text-zinc-300 active:text-amber-400 cursor-pointer shadow truncate"
+            className="flex-1 py-3 px-3 rounded-2xl bg-[#191B1F] border border-[#303238] flex items-center justify-center gap-1 text-xs font-semibold text-[#F5F5F2] active:text-[#D8C6A1] cursor-pointer shadow-sm truncate transition-colors"
           >
-            {activeTab === 'photos' ? <Film className="w-4 h-4 text-amber-400" /> : <ImageIcon className="w-4 h-4 text-sky-400" />}
+            {activeTab === 'photos' ? <Film className="w-4 h-4 text-[#D8C6A1]" /> : <ImageIcon className="w-4 h-4 text-[#D8C6A1]" />}
             <span className="capitalize">{activeTab === 'photos' ? 'Videos' : 'Photos'}</span>
           </motion.button>
         </div>
 
         {/* 4. Quick Trip Switcher */}
         <div className="w-full">
-          <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5 px-1">
+          <p className="text-[10px] font-mono uppercase tracking-wider text-[#A3A6AD] mb-1.5 px-1 font-semibold">
             Jump to Album on TV
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -428,7 +432,7 @@ function RemoteControllerContent() {
                 key={trip.id}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => sendCommand('select_album', { folderId: trip.id, title: trip.name })}
-                className="py-2.5 px-3 rounded-xl bg-zinc-900/80 active:bg-amber-400 active:text-black border border-white/10 text-left text-xs font-medium text-stone-200 truncate cursor-pointer transition-colors shadow-sm"
+                className="py-2.5 px-3 rounded-xl bg-[#191B1F] hover:bg-[#22252A] active:bg-[#D8C6A1] active:text-[#101113] border border-[#303238] text-left text-xs font-medium text-[#F5F5F2] truncate cursor-pointer transition-colors shadow-sm"
               >
                 {trip.name}
               </motion.button>
@@ -438,7 +442,7 @@ function RemoteControllerContent() {
       </main>
 
       {/* Footer */}
-      <footer className="text-center text-[10px] text-zinc-500 font-mono py-1">
+      <footer className="text-center text-[10px] text-[#A3A6AD]/70 font-mono py-1">
         Alam&apos;s Frame Mouse Touchpad · Glide to move cursor · Tap to click
       </footer>
     </div>
@@ -449,8 +453,8 @@ export default function MobileRemotePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0d0e11] text-stone-300 flex items-center justify-center font-mono text-xs">
-          <Loader2 className="w-5 h-5 animate-spin text-amber-400 mr-2" />
+        <div className="min-h-screen bg-[#101113] text-[#A3A6AD] flex items-center justify-center font-mono text-xs">
+          <Loader2 className="w-5 h-5 animate-spin text-[#D8C6A1] mr-2" />
           Loading Remote Controller…
         </div>
       }

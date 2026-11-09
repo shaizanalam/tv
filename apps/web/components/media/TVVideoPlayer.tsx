@@ -23,8 +23,6 @@ interface TVVideoPlayerProps {
   onExit: () => void;
 }
 
-const GOOGLE_CLIENT_KEY = 'AIzaSyAWGrfCCr7albM3lmCc937gx4uIphbpeKQ';
-
 export function TVVideoPlayer({
   video,
   playlist,
@@ -44,7 +42,7 @@ export function TVVideoPlayer({
   const lastTimeUpdate = useRef(0);
   const retryCount = useRef(0);
 
-  // Same-origin stream route with instant Google CDN resolution (zero CORS, hardware Range decode)
+  // Same-origin stream route with direct ReadableStream proxying
   const videoFileId = video.fileId || video.id;
   const videoStreamSrc = `/api/drive/video?id=${videoFileId}`;
 
@@ -219,18 +217,27 @@ export function TVVideoPlayer({
         }}
         onEnded={onNext}
         onError={() => {
-          if (retryCount.current < 2 && videoRef.current) {
+          const mediaError = videoRef.current?.error;
+          // Code 1: MEDIA_ERR_ABORTED - browser/user cancelled request during navigation (ignore)
+          if (mediaError?.code === 1) {
+            return;
+          }
+
+          // Auto-reconnect with cache busting up to 3 times before displaying notice
+          if (retryCount.current < 3 && videoRef.current) {
             retryCount.current += 1;
-            console.warn('Retrying video playback attempt', retryCount.current);
+            console.warn('Video streaming hiccup, reconnecting attempt', retryCount.current);
             setTimeout(() => {
               if (videoRef.current) {
+                videoRef.current.src = `/api/drive/video?id=${videoFileId}&retry=${Date.now()}`;
                 videoRef.current.load();
                 videoRef.current.play().catch(() => {});
               }
-            }, 600);
+            }, 750);
             return;
           }
-          console.warn('Video failed to stream directly:', videoRef.current?.error);
+
+          console.warn('Video streaming notice:', mediaError);
           setHasError(true);
           setIsBuffering(false);
         }}
@@ -251,36 +258,38 @@ export function TVVideoPlayer({
         </div>
       )}
 
-      {/* Internal In-App Error Overlay */}
+      {/* Internal In-App Stream Notice Overlay */}
       {hasError && (
         <div className="absolute inset-0 bg-[#101113]/90 flex flex-col items-center justify-center text-center p-6 z-20">
-          <div className="w-16 h-16 rounded-full bg-red-950/50 border border-red-800/40 flex items-center justify-center mb-4">
+          <div className="w-16 h-16 rounded-full bg-[#191B1F] border border-[#303238] flex items-center justify-center mb-4">
             <Film className="w-8 h-8 text-[#D8C6A1]" />
           </div>
           <h2 className="text-xl font-bold text-[#F5F5F2] tracking-tight">
-            Video Format Notice
+            Stream Delay
           </h2>
           <p className="text-xs text-[#A3A6AD] max-w-sm mt-1.5 font-light">
-            This video codec is not directly streamable on this browser. You can skip to the next clip in this album.
+            This clip experienced a temporary connection delay with Google Drive. You can retry playing or skip to the next clip.
           </p>
           <div className="flex items-center gap-3 mt-6">
             <button
               onClick={() => {
                 setHasError(false);
                 setIsBuffering(true);
+                retryCount.current = 0;
                 if (videoRef.current) {
+                  videoRef.current.src = `/api/drive/video?id=${videoFileId}&retry=${Date.now()}`;
                   videoRef.current.load();
                   videoRef.current.play().catch(() => {});
                 }
               }}
-              className="px-5 py-2.5 rounded-full bg-[#191B1F] hover:bg-[#22252A] text-[#F5F5F2] border border-[#303238] text-xs font-semibold flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2.5 rounded-full bg-[#191B1F] hover:bg-[#22252A] text-[#F5F5F2] border border-[#303238] text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Retry Clip</span>
             </button>
             <button
               onClick={onNext}
-              className="px-6 py-2.5 rounded-full bg-[#D8C6A1] hover:bg-[#E4D5B5] text-[#101113] text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg"
+              className="px-6 py-2.5 rounded-full bg-[#D8C6A1] hover:bg-[#E4D5B5] text-[#101113] text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg transition-transform active:scale-95"
             >
               <span>Next Video</span>
               <SkipForward className="w-3.5 h-3.5 fill-current" />
@@ -326,9 +335,22 @@ export function TVVideoPlayer({
                 <h1 className="text-xl lg:text-2xl font-bold text-[#F5F5F2] tracking-tight drop-shadow truncate">
                   {cleanTitle}
                 </h1>
-                <p className="text-xs text-[#A3A6AD] font-light mt-0.5">
-                  Remote D-pad: [Left/Right] Prev / Next Video · [OK] Pause · [Up/Down] Volume
-                </p>
+                <div className="flex items-center gap-2 mt-1 text-[11px] text-[#A3A6AD]">
+                  <span className="flex items-center gap-1">
+                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#191B1F] border border-[#303238] text-[#D8C6A1]">← / →</kbd>
+                    <span>Prev / Next Video</span>
+                  </span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#191B1F] border border-[#303238] text-[#D8C6A1]">OK / Space</kbd>
+                    <span>{isPlaying ? 'Pause' : 'Play'}</span>
+                  </span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#191B1F] border border-[#303238] text-[#D8C6A1]">↑ / ↓</kbd>
+                    <span>Volume</span>
+                  </span>
+                </div>
               </div>
 
               {/* Progress Scrubber */}
@@ -337,7 +359,7 @@ export function TVVideoPlayer({
                   {formatTime(currentTime)}
                 </span>
                 <div
-                  className="flex-1 h-2 rounded-full bg-white/15 overflow-hidden cursor-pointer relative"
+                  className="flex-1 h-2 rounded-full bg-white/15 overflow-hidden cursor-pointer relative group"
                   onClick={e => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const pos = (e.clientX - rect.left) / rect.width;
@@ -348,7 +370,7 @@ export function TVVideoPlayer({
                 >
                   <div
                     ref={progressBarRef}
-                    className="h-full bg-[#D8C6A1] rounded-full transition-all duration-75"
+                    className="h-full bg-[#D8C6A1] group-hover:brightness-110 rounded-full transition-all duration-75 shadow-[0_0_8px_rgba(216,198,161,0.4)]"
                     style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
                   />
                 </div>

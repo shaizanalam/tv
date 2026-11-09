@@ -64,17 +64,29 @@ export function SlideshowPlayer({
     return `https://lh3.googleusercontent.com/d/${item.fileId || item.id}=s200`;
   }, []);
 
-  // Safe video autoplay with TV browser unmuted autoplay fallback
+  // Safe video autoplay with TV browser unmuted autoplay fallback (Full Volume 100%)
   const isCurrentVideo = currentPhoto?.mimeType?.startsWith('video/') || !!currentPhoto?.name?.match(/\.(mp4|mov|webm)$/i);
   useEffect(() => {
     if (videoRef.current && isCurrentVideo) {
+      videoRef.current.volume = 1.0;
+      videoRef.current.muted = false;
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
         playPromise.catch(() => {
           if (videoRef.current) {
             videoRef.current.muted = true;
-            setIsMuted(true);
-            videoRef.current.play().catch(() => {});
+            videoRef.current.play().then(() => {
+              const unmuteHandler = () => {
+                if (videoRef.current) {
+                  videoRef.current.muted = false;
+                  videoRef.current.volume = 1.0;
+                }
+                window.removeEventListener('keydown', unmuteHandler);
+                window.removeEventListener('click', unmuteHandler);
+              };
+              window.addEventListener('keydown', unmuteHandler, { once: true });
+              window.addEventListener('click', unmuteHandler, { once: true });
+            }).catch(() => {});
           }
         });
       }
@@ -408,73 +420,73 @@ export function SlideshowPlayer({
         {/* Top Floating Glass Navigation Bar */}
         <div className="absolute top-8 left-10 right-10 flex items-center justify-between">
           {/* Back Pill */}
-          <div className="flex items-center gap-3 bg-black/60 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/15 shadow-xl">
+          <div className="flex items-center gap-3 bg-[#101113]/85 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-[#303238] shadow-2xl">
             <button
               onClick={onExit}
-              className="pointer-events-auto flex items-center gap-2 text-white/90 text-xs font-medium hover:text-white transition-all cursor-pointer"
+              className="pointer-events-auto flex items-center gap-2 text-[#F5F5F2] text-xs font-medium hover:text-[#D8C6A1] transition-colors cursor-pointer"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-3.5 h-3.5 text-[#D8C6A1]" />
               <span>Back to Library</span>
             </button>
-            <span className="text-white/30">|</span>
-            <div className="flex items-center gap-1.5 text-xs text-white/70 font-mono">
-              <span className="text-white font-semibold">{currentIndex + 1}</span>
+            <span className="text-[#303238]">|</span>
+            <div className="flex items-center gap-1.5 text-xs text-[#A3A6AD] font-mono">
+              <span className="text-[#D8C6A1] font-semibold">{currentIndex + 1}</span>
               <span>/</span>
               <span>{photos.length}</span>
             </div>
           </div>
 
           {/* Right Floating Control Cluster */}
-          <div className="flex items-center gap-3 bg-black/60 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/15 shadow-xl text-white">
+          <div className="flex items-center gap-3 bg-[#101113]/85 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-[#303238] shadow-2xl text-[#F5F5F2]">
             {/* Play/Pause */}
             <button
               onClick={() => setIsPlaying(p => !p)}
-              className="pointer-events-auto flex items-center gap-2 text-xs font-medium hover:text-white transition-colors cursor-pointer"
+              className="pointer-events-auto flex items-center gap-2 text-xs font-medium hover:text-[#D8C6A1] transition-colors cursor-pointer"
             >
               {isPlaying ? (
                 <>
-                  <Pause className="w-3.5 h-3.5 fill-white" />
+                  <Pause className="w-3.5 h-3.5 fill-current text-[#D8C6A1]" />
                   <span>Playing</span>
                 </>
               ) : (
                 <>
-                  <Play className="w-3.5 h-3.5 fill-white" />
+                  <Play className="w-3.5 h-3.5 fill-current text-[#D8C6A1]" />
                   <span>Paused</span>
                 </>
               )}
             </button>
 
-            <span className="text-white/30">|</span>
+            <span className="text-[#303238]">|</span>
 
             {/* Shuffle */}
             <button
               onClick={toggleShuffle}
               className={`pointer-events-auto p-1 rounded-md text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
-                isShuffle ? 'text-amber-300 font-semibold' : 'text-white/70 hover:text-white'
+                isShuffle ? 'text-[#D8C6A1] font-semibold' : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
               }`}
             >
               <Shuffle className="w-3.5 h-3.5" />
               <span>Shuffle</span>
             </button>
 
-            <span className="text-white/30">|</span>
+            <span className="text-[#303238]">|</span>
 
             {/* Museum Art Frame Toggle */}
             <button
               onClick={() => setIsArtFrame(f => !f)}
               className={`pointer-events-auto p-1 rounded-md text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
-                isArtFrame ? 'text-amber-300 font-semibold' : 'text-white/70 hover:text-white'
+                isArtFrame ? 'text-[#D8C6A1] font-semibold' : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
               }`}
             >
               <Frame className="w-3.5 h-3.5" />
               <span>Art Frame (F)</span>
             </button>
 
-            <span className="text-white/30">|</span>
+            <span className="text-[#303238]">|</span>
 
             {/* Ambient Clock */}
-            <div className="flex items-center gap-1.5 text-xs font-light text-white/90">
-              <Clock className="w-3 h-3 text-amber-300" />
+            <div className="flex items-center gap-1.5 text-xs font-light text-[#F5F5F2]">
+              <Clock className="w-3 h-3 text-[#D8C6A1]" />
               <span>{clockStr}</span>
             </div>
           </div>
@@ -483,9 +495,9 @@ export function SlideshowPlayer({
         {/* Video Scrubber (Appears when video is playing) */}
         {isCurrentVideo && (
           <div className="absolute top-22 left-10 right-10">
-            <div className="w-full bg-white/20 h-1 rounded-full overflow-hidden backdrop-blur-sm">
+            <div className="w-full bg-white/15 h-1.5 rounded-full overflow-hidden backdrop-blur-sm">
               <div
-                className="bg-amber-400 h-full transition-all duration-200"
+                className="bg-[#D8C6A1] h-full transition-all duration-200"
                 style={{ width: `${videoProgress}%` }}
               />
             </div>
@@ -495,32 +507,32 @@ export function SlideshowPlayer({
         {/* Bottom Scrubber & Metadata Bar */}
         <div className="absolute bottom-8 left-10 right-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
           {/* Item Meta Card */}
-          <div className="max-w-lg bg-black/60 backdrop-blur-2xl px-6 py-4 rounded-2xl border border-white/15 shadow-xl">
-            <h2 className="text-lg md:text-xl font-medium tracking-tight text-white truncate">
+          <div className="max-w-lg bg-[#101113]/85 backdrop-blur-2xl px-6 py-4 rounded-2xl border border-[#303238] shadow-2xl">
+            <h2 className="text-lg md:text-xl font-medium tracking-tight text-[#F5F5F2] truncate">
               {currentPhoto.name.replace(/\.[^/.]+$/, '')}
             </h2>
-            <div className="flex items-center gap-2.5 text-xs text-white/60 font-light mt-1">
-              <span className="uppercase tracking-wider font-mono text-[10px] bg-white/10 px-2 py-0.5 rounded text-amber-300">
-                {isCurrentVideo ? 'MP4 Video' : 'Original Photo'}
+            <div className="flex items-center gap-2.5 text-xs text-[#A3A6AD] font-light mt-1">
+              <span className="uppercase tracking-wider font-mono text-[10px] bg-[#191B1F] border border-[#303238] px-2 py-0.5 rounded text-[#D8C6A1] font-semibold">
+                {isCurrentVideo ? 'Cinema Video' : 'Original Photo'}
               </span>
               <span>·</span>
               <span>Item {currentIndex + 1} of {photos.length}</span>
               <span>·</span>
-              <span className="text-white/60">
+              <span className="text-[#A3A6AD]">
                 {filmstripFocused ? 'Filmstrip Active: [< >] scrub, [OK] jump, [Up] exit' : 'D-pad [< >] skip, [Down] Filmstrip'}
               </span>
             </div>
           </div>
 
           {/* Interactive Filmstrip Scrubber */}
-          <div className={`pointer-events-auto flex items-center gap-2 bg-black/75 backdrop-blur-2xl p-2.5 rounded-2xl border transition-all overflow-x-auto max-w-2xl ${
+          <div className={`pointer-events-auto flex items-center gap-2 bg-[#101113]/90 backdrop-blur-2xl p-2.5 rounded-2xl border transition-all overflow-x-auto max-w-2xl ${
             filmstripFocused
-              ? 'ring-3 ring-amber-400 border-amber-400/50 shadow-2xl scale-[1.02]'
-              : 'border-white/15 shadow-xl'
+              ? 'ring-2 ring-[#D8C6A1] border-[#D8C6A1]/60 shadow-2xl scale-[1.02]'
+              : 'border-[#303238] shadow-xl'
           }`}>
             <button
               onClick={prevPhoto}
-              className="p-2 text-white/60 hover:text-white transition-colors cursor-pointer"
+              className="p-2 text-[#A3A6AD] hover:text-[#F5F5F2] transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -538,9 +550,9 @@ export function SlideshowPlayer({
                   className={`cursor-pointer rounded-lg overflow-hidden shrink-0 transition-all duration-200 ${
                     isSelected
                       ? filmstripFocused
-                        ? 'w-16 h-12 ring-3 ring-amber-400 scale-110 opacity-100 shadow-lg'
-                        : 'w-16 h-12 ring-2 ring-white scale-105 opacity-100 shadow-md'
-                      : 'w-13 h-9 opacity-45 hover:opacity-90'
+                        ? 'w-16 h-12 ring-2 ring-[#D8C6A1] scale-110 opacity-100 shadow-lg border border-[#D8C6A1]'
+                        : 'w-16 h-12 ring-2 ring-[#D8C6A1]/80 scale-105 opacity-100 shadow-md border border-[#D8C6A1]/50'
+                      : 'w-13 h-9 opacity-45 hover:opacity-90 border border-[#303238]'
                   }`}
                 >
                   <img

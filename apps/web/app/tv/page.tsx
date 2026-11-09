@@ -711,51 +711,41 @@ function CinematicTVPlatform() {
           <AlamsFrameLogo className="h-7 lg:h-8 w-auto text-[#D8C6A1] filter drop-shadow-md group-hover:brightness-110 transition-all" />
         </div>
 
-        {/* Minimal Category Switcher */}
+        {/* Minimal Category Switcher with Fluid Motion Pill */}
         <nav
-          className={`flex items-center gap-1.5 bg-[#191B1F]/90 backdrop-blur-md px-2 py-1.5 rounded-full border transition-all ${
+          className={`flex items-center gap-1 bg-[#191B1F]/90 backdrop-blur-md p-1 rounded-full border transition-all ${
             focusZone === 'tabs' ? 'border-[#D8C6A1] ring-2 ring-[#D8C6A1]/40' : 'border-[#303238]'
           }`}
         >
-          <button
-            onClick={() => {
-              setActiveTab('featured');
-              setFocusZone('cards');
-            }}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-              activeTab === 'featured'
-                ? 'bg-[#D8C6A1] text-[#101113] shadow-md'
-                : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
-            }`}
-          >
-            Spotlight
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('photos');
-              setFocusZone('cards');
-            }}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-              activeTab === 'photos'
-                ? 'bg-[#D8C6A1] text-[#101113] shadow-md'
-                : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
-            }`}
-          >
-            Photos ({totalPhotos.toLocaleString()})
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('videos');
-              setFocusZone('cards');
-            }}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-              activeTab === 'videos'
-                ? 'bg-[#D8C6A1] text-[#101113] shadow-md'
-                : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
-            }`}
-          >
-            Cinema ({totalVideos.toLocaleString()})
-          </button>
+          {(
+            [
+              { id: 'featured', label: 'Spotlight' },
+              { id: 'photos', label: `Photos (${totalPhotos.toLocaleString()})` },
+              { id: 'videos', label: `Cinema (${totalVideos.toLocaleString()})` },
+            ] as const
+          ).map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setFocusZone('cards');
+              }}
+              className={`relative px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-colors cursor-pointer ${
+                activeTab === tab.id
+                  ? 'text-[#101113]'
+                  : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
+              }`}
+            >
+              {activeTab === tab.id && (
+                <motion.div
+                  layoutId="activeCategoryPill"
+                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  className="absolute inset-0 bg-[#D8C6A1] rounded-full shadow-md -z-0"
+                />
+              )}
+              <span className="relative z-10">{tab.label}</span>
+            </button>
+          ))}
         </nav>
 
         {/* Right Utility Deck: Clock, Phone Remote, Logout */}
@@ -824,7 +814,7 @@ function CinematicTVPlatform() {
           <div className="flex items-center gap-3 pt-2">
             <motion.button
               whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
+              whileTap={{ scale: 0.96 }}
               onClick={() =>
                 openCollection(
                   activeFeaturedTrip.folderId,
@@ -846,13 +836,16 @@ function CinematicTVPlatform() {
                 <Play className="w-4 h-4 fill-[#101113]" />
               )}
               <span>
-                {activeTab === 'videos' ? 'Play Cinema Clips [OK]' : 'Play Collection [OK]'}
+                {activeTab === 'videos' ? 'Play Cinema Clips' : 'Play Collection'}
               </span>
+              <kbd className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#101113]/15 border border-black/10">
+                OK
+              </kbd>
             </motion.button>
 
             <motion.button
               whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
+              whileTap={{ scale: 0.96 }}
               onClick={() =>
                 openCollection(
                   activeFeaturedTrip.folderId,
@@ -928,16 +921,33 @@ function CinematicTVPlatform() {
                     activeTab === 'videos' ? 'videos' : 'photos'
                   );
                 }}
-                whileHover={{ y: -3 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                whileHover={{ y: -4 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 26 }}
                 className={`relative rounded-2xl overflow-hidden aspect-[16/10] cursor-pointer transition-all border ${
                   isFocused
-                    ? 'ring-2 ring-[#D8C6A1] ring-offset-2 ring-offset-[#101113] shadow-[0_12px_32px_rgba(0,0,0,0.6),0_0_20px_rgba(216,198,161,0.18)] scale-[1.03] z-10 border-[#D8C6A1]'
+                    ? 'ring-2 ring-[#D8C6A1] ring-offset-4 ring-offset-[#101113] shadow-[0_20px_48px_rgba(0,0,0,0.85),0_0_28px_rgba(216,198,161,0.25)] scale-[1.04] z-10 border-[#D8C6A1]'
                     : isSelected
-                    ? 'ring-1 ring-[#D8C6A1]/60 border-[#D8C6A1]/40'
+                    ? 'ring-1 ring-[#D8C6A1]/70 border-[#D8C6A1]/50 shadow-lg'
                     : 'opacity-75 hover:opacity-100 border-[#303238]'
                 }`}
               >
+                {/* Top Corner Media Count Pill */}
+                <div className="absolute top-2.5 left-2.5 z-10">
+                  <span className="px-2 py-0.5 rounded-full bg-[#101113]/70 backdrop-blur-md border border-white/10 text-[10px] font-mono text-[#D8C6A1] flex items-center gap-1 shadow">
+                    {activeTab === 'videos' ? (
+                      <>
+                        <Film className="w-2.5 h-2.5" />
+                        <span>{trip.videoCount}</span>
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="w-2.5 h-2.5" />
+                        <span>{trip.photoCount}</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+
                 {/* Progressive Card Thumbnail */}
                 <ProgressiveImage
                   fileId={trip.coverFileId}
@@ -948,7 +958,7 @@ function CinematicTVPlatform() {
                 />
 
                 {/* Soft Bottom-Only Scrim (Keeps imagery bright, text 100% legible) */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#101113]/90 via-[#101113]/30 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#101113]/95 via-[#101113]/40 to-transparent" />
 
                 {/* Card Title & Counts */}
                 <div className="absolute bottom-3 left-3.5 right-3.5 text-white">
@@ -957,9 +967,9 @@ function CinematicTVPlatform() {
                   </h4>
                   <div className="flex items-center justify-between text-[10px] text-[#A3A6AD] font-mono mt-0.5">
                     <span>{trip.year}</span>
-                    <span>
+                    <span className="text-[#D8C6A1]/90 font-medium">
                       {activeTab === 'videos'
-                        ? `${trip.videoCount} videos`
+                        ? `${trip.videoCount} clips`
                         : `${trip.photoCount} photos`}
                     </span>
                   </div>
