@@ -1,25 +1,27 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronUp,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Play,
-  Pause,
   SkipForward,
   SkipBack,
   CornerUpLeft,
   Tv,
   Film,
   Image as ImageIcon,
-  CheckCircle2,
   Sliders,
   Volume2,
   Loader2,
+  MousePointer,
+  Grid,
+  ArrowLeft,
+  Smartphone,
 } from 'lucide-react';
 
 const TRIP_COLLECTIONS = [
@@ -35,7 +37,12 @@ function RemoteControllerContent() {
   const pairCode = searchParams.get('pair') || searchParams.get('code') || '482917';
 
   const [activeTab, setActiveTab] = useState<'photos' | 'videos'>('photos');
-  const [lastSent, setLastSent] = useState<string>('');
+  const [controlMode, setControlMode] = useState<'trackpad' | 'dpad'>('trackpad');
+  const [lastGesture, setLastGesture] = useState<string>('');
+
+  // Touchpad touch tracking refs
+  const touchStartPos = useRef<{ x: number; y: number; time: number } | null>(null);
+  const touchPadRef = useRef<HTMLDivElement | null>(null);
 
   // Send Remote Command over sync channel
   const sendCommand = useCallback(
@@ -43,12 +50,12 @@ function RemoteControllerContent() {
       // Gentle mobile haptic vibration
       if (typeof window !== 'undefined' && 'vibrate' in navigator) {
         try {
-          navigator.vibrate(20);
+          navigator.vibrate(25);
         } catch {}
       }
 
-      setLastSent(type);
-      setTimeout(() => setLastSent(''), 600);
+      setLastGesture(type);
+      setTimeout(() => setLastGesture(''), 500);
 
       try {
         await fetch('/api/remote/sync', {
@@ -70,16 +77,67 @@ function RemoteControllerContent() {
     [pairCode]
   );
 
+  // Touchpad Gestures: Tap to OK, Swipe Up/Down/Left/Right
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartPos.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartPos.current) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartPos.current.x;
+    const dy = touch.clientY - touchStartPos.current.y;
+    const dt = Date.now() - touchStartPos.current.time;
+
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    const minSwipeDist = 35; // minimum distance in px for a gesture
+
+    if (absX < 15 && absY < 15 && dt < 300) {
+      // Tap detected -> Execute OK
+      sendCommand('ok');
+    } else if (absX > absY && absX > minSwipeDist) {
+      // Horizontal swipe
+      if (dx > 0) {
+        sendCommand('dpad_right');
+      } else {
+        sendCommand('dpad_left');
+      }
+    } else if (absY > absX && absY > minSwipeDist) {
+      // Vertical swipe
+      if (dy > 0) {
+        sendCommand('dpad_down');
+      } else {
+        sendCommand('dpad_up');
+      }
+    }
+
+    touchStartPos.current = null;
+  };
+
   return (
-    <div className="min-h-[100dvh] w-full bg-[#0d0e11] text-stone-100 flex flex-col justify-between p-5 select-none font-sans">
-      {/* Top Header */}
-      <header className="flex items-center justify-between pt-2 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-400">
-            <Tv className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-sm font-semibold tracking-tight text-white">DriveFrame TV</h1>
+    <div className="min-h-[100dvh] w-full bg-[#0d0e11] text-stone-100 flex flex-col justify-between p-4 sm:p-5 select-none font-sans">
+      {/* 1. Header with prominent Back Button */}
+      <header className="flex items-center justify-between pb-3 border-b border-white/10">
+        <div className="flex items-center gap-2">
+          {/* Prominent Back Button */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => sendCommand('back')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400 text-black font-bold text-xs cursor-pointer shadow-md active:bg-amber-300"
+            title="Back / Exit on TV"
+          >
+            <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+            <span>Back</span>
+          </motion.button>
+
+          <div className="pl-1">
+            <h1 className="text-xs font-semibold text-white tracking-tight">DriveFrame TV</h1>
             <p className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Connected · #{pairCode}
@@ -87,89 +145,147 @@ function RemoteControllerContent() {
           </div>
         </div>
 
-        {/* Photos vs Videos Toggle */}
-        <div className="flex items-center bg-zinc-900 border border-white/10 p-1 rounded-full">
+        {/* Mode Selector: Touchpad vs D-Pad */}
+        <div className="flex items-center bg-zinc-900 border border-white/10 p-1 rounded-full gap-1">
           <button
-            onClick={() => {
-              setActiveTab('photos');
-              sendCommand('switch_hub', { tab: 'photos' });
-            }}
-            className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-all ${
-              activeTab === 'photos' ? 'bg-amber-400 text-black font-semibold shadow' : 'text-zinc-400'
+            onClick={() => setControlMode('trackpad')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-all ${
+              controlMode === 'trackpad' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-400'
             }`}
           >
-            Photos
+            <MousePointer className="w-3 h-3" />
+            <span>Touchpad</span>
           </button>
           <button
-            onClick={() => {
-              setActiveTab('videos');
-              sendCommand('switch_hub', { tab: 'videos' });
-            }}
-            className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-all ${
-              activeTab === 'videos' ? 'bg-amber-400 text-black font-semibold shadow' : 'text-zinc-400'
+            onClick={() => setControlMode('dpad')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-all ${
+              controlMode === 'dpad' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-400'
             }`}
           >
-            Videos
+            <Grid className="w-3 h-3" />
+            <span>D-Pad</span>
           </button>
         </div>
       </header>
 
-      {/* Main Touch Trackpad & D-Pad */}
-      <main className="my-auto flex flex-col items-center gap-6 py-4">
-        {/* Spatial Circular D-Pad */}
-        <div className="relative w-64 h-64 rounded-full bg-zinc-900/90 border border-white/15 shadow-2xl flex items-center justify-center p-3">
-          {/* UP */}
+      {/* 2. Main Interactive Surface (Touchpad or D-Pad) */}
+      <main className="my-auto flex flex-col items-center gap-4 py-2 w-full max-w-sm mx-auto">
+        {controlMode === 'trackpad' ? (
+          /* ============================================================ */
+          /* TOUCHPAD CONTROLLER (Apple TV Remote Trackpad Style)          */
+          /* ============================================================ */
+          <div className="w-full flex flex-col items-center gap-2">
+            <div
+              ref={touchPadRef}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              className="relative w-full h-72 rounded-3xl bg-gradient-to-b from-zinc-800/80 to-zinc-900/95 border-2 border-white/15 shadow-2xl flex flex-col items-center justify-center p-6 cursor-pointer touch-none active:border-amber-400/50 transition-colors"
+            >
+              {/* Subtle Touchpad Grid Texture */}
+              <div className="absolute inset-0 rounded-3xl bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+
+              {/* Center Touch Indicator */}
+              <motion.div
+                animate={{ scale: [1, 1.05, 1], opacity: [0.6, 0.9, 0.6] }}
+                transition={{ duration: 3, repeat: Infinity }}
+                className="w-20 h-20 rounded-full bg-amber-400/10 border border-amber-400/30 flex flex-col items-center justify-center text-amber-300 pointer-events-none"
+              >
+                <MousePointer className="w-6 h-6 stroke-[1.8] mb-0.5" />
+                <span className="text-[10px] font-bold tracking-wider">TAP = OK</span>
+              </motion.div>
+
+              <div className="absolute bottom-4 text-center pointer-events-none">
+                <p className="text-[11px] font-medium text-stone-300">
+                  Swipe anywhere to navigate TV
+                </p>
+                <p className="text-[9px] text-zinc-500 font-mono mt-0.5">
+                  Tap anywhere to select · Fast gesture response
+                </p>
+              </div>
+
+              {/* Dynamic Gesture Feedback Pill */}
+              <AnimatePresence>
+                {lastGesture && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className="absolute top-4 px-3 py-1 rounded-full bg-amber-400 text-black text-[10px] font-bold uppercase tracking-wider shadow-lg"
+                  >
+                    {lastGesture.replace('_', ' ')}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        ) : (
+          /* ============================================================ */
+          /* CLASSIC SPATIAL D-PAD                                        */
+          /* ============================================================ */
+          <div className="relative w-64 h-64 rounded-full bg-zinc-900/90 border border-white/15 shadow-2xl flex items-center justify-center p-3">
+            {/* UP */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => sendCommand('dpad_up')}
+              className="absolute top-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
+            >
+              <ChevronUp className="w-7 h-7" />
+            </motion.button>
+
+            {/* DOWN */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => sendCommand('dpad_down')}
+              className="absolute bottom-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
+            >
+              <ChevronDown className="w-7 h-7" />
+            </motion.button>
+
+            {/* LEFT */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => sendCommand('dpad_left')}
+              className="absolute left-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
+            >
+              <ChevronLeft className="w-7 h-7" />
+            </motion.button>
+
+            {/* RIGHT */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => sendCommand('dpad_right')}
+              className="absolute right-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
+            >
+              <ChevronRight className="w-7 h-7" />
+            </motion.button>
+
+            {/* CENTER OK BUTTON */}
+            <motion.button
+              whileTap={{ scale: 0.88 }}
+              onClick={() => sendCommand('ok')}
+              className="w-22 h-22 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 text-black font-bold text-base shadow-xl flex items-center justify-center cursor-pointer border-2 border-amber-200"
+            >
+              OK
+            </motion.button>
+          </div>
+        )}
+
+        {/* 3. Action Controls Deck */}
+        <div className="flex items-center justify-center gap-3 w-full">
           <motion.button
-            whileTap={{ scale: 0.92 }}
-            onClick={() => sendCommand('dpad_up')}
-            className="absolute top-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
+            whileTap={{ scale: 0.9 }}
+            onClick={() => sendCommand('back')}
+            className="flex-1 py-3 px-3 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center gap-1.5 text-xs font-semibold text-zinc-300 active:text-amber-400 cursor-pointer shadow"
           >
-            <ChevronUp className="w-7 h-7" />
+            <CornerUpLeft className="w-4 h-4" />
+            <span>Back</span>
           </motion.button>
 
-          {/* DOWN */}
-          <motion.button
-            whileTap={{ scale: 0.92 }}
-            onClick={() => sendCommand('dpad_down')}
-            className="absolute bottom-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
-          >
-            <ChevronDown className="w-7 h-7" />
-          </motion.button>
-
-          {/* LEFT */}
-          <motion.button
-            whileTap={{ scale: 0.92 }}
-            onClick={() => sendCommand('dpad_left')}
-            className="absolute left-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
-          >
-            <ChevronLeft className="w-7 h-7" />
-          </motion.button>
-
-          {/* RIGHT */}
-          <motion.button
-            whileTap={{ scale: 0.92 }}
-            onClick={() => sendCommand('dpad_right')}
-            className="absolute right-2 w-14 h-14 rounded-full bg-white/5 active:bg-amber-400/30 flex items-center justify-center text-zinc-300 active:text-amber-300 cursor-pointer"
-          >
-            <ChevronRight className="w-7 h-7" />
-          </motion.button>
-
-          {/* CENTER OK BUTTON */}
-          <motion.button
-            whileTap={{ scale: 0.88 }}
-            onClick={() => sendCommand('ok')}
-            className="w-22 h-22 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 text-black font-bold text-base shadow-xl flex items-center justify-center cursor-pointer border-2 border-amber-200"
-          >
-            OK
-          </motion.button>
-        </div>
-
-        {/* Playback Action Controls */}
-        <div className="flex items-center justify-center gap-4 w-full max-w-xs">
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => sendCommand('skip_prev')}
             className="w-12 h-12 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center text-zinc-300 active:text-amber-400 cursor-pointer shadow"
+            title="Previous"
           >
             <SkipBack className="w-5 h-5" />
           </motion.button>
@@ -177,33 +293,39 @@ function RemoteControllerContent() {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => sendCommand('play_pause')}
-            className="w-16 h-14 rounded-2xl bg-white text-black font-semibold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-transform"
+            className="w-14 h-12 rounded-2xl bg-amber-400 text-black font-semibold flex items-center justify-center cursor-pointer shadow-lg active:scale-95"
+            title="Play/Pause"
           >
-            <Play className="w-6 h-6 fill-current ml-0.5" />
+            <Play className="w-5 h-5 fill-current ml-0.5" />
           </motion.button>
 
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => sendCommand('skip_next')}
             className="w-12 h-12 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center text-zinc-300 active:text-amber-400 cursor-pointer shadow"
+            title="Next"
           >
             <SkipForward className="w-5 h-5" />
           </motion.button>
 
           <motion.button
             whileTap={{ scale: 0.9 }}
-            onClick={() => sendCommand('back')}
-            className="w-12 h-12 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center text-zinc-300 active:text-amber-400 cursor-pointer shadow"
-            title="Back / Exit"
+            onClick={() => {
+              const nextTab = activeTab === 'photos' ? 'videos' : 'photos';
+              setActiveTab(nextTab);
+              sendCommand('switch_hub', { tab: nextTab });
+            }}
+            className="flex-1 py-3 px-3 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center gap-1 text-xs font-semibold text-zinc-300 active:text-amber-400 cursor-pointer shadow truncate"
           >
-            <CornerUpLeft className="w-5 h-5" />
+            {activeTab === 'photos' ? <Film className="w-4 h-4 text-amber-400" /> : <ImageIcon className="w-4 h-4 text-sky-400" />}
+            <span className="capitalize">{activeTab === 'photos' ? 'Videos' : 'Photos'}</span>
           </motion.button>
         </div>
 
-        {/* Quick Album Switcher */}
-        <div className="w-full max-w-sm">
-          <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-2 px-1">
-            Switch Trip on TV
+        {/* 4. Quick Trip Switcher */}
+        <div className="w-full">
+          <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-2 px-1">
+            Jump to Album on TV
           </p>
           <div className="grid grid-cols-2 gap-2">
             {TRIP_COLLECTIONS.map(trip => (
@@ -220,9 +342,9 @@ function RemoteControllerContent() {
         </div>
       </main>
 
-      {/* Footer Info */}
+      {/* Footer */}
       <footer className="text-center text-[10px] text-zinc-500 font-mono py-1">
-        DriveFrame Phone Remote · Tap any button to control TV
+        DriveFrame Phone Remote · {controlMode === 'trackpad' ? 'Touchpad Active' : 'D-Pad Active'}
       </footer>
     </div>
   );
