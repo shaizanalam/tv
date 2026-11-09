@@ -21,6 +21,8 @@ import {
   X,
   Tv,
   LogOut,
+  ArrowLeft,
+  Eye,
 } from 'lucide-react';
 import { SlideshowPlayer } from '@/components/slideshow/SlideshowPlayer';
 import { TVVideoPlayer } from '@/components/media/TVVideoPlayer';
@@ -56,8 +58,6 @@ export interface AlbumFolder {
 /* ============================================================
    Verified Collections (Memory / Cinema Catalog)
    ============================================================ */
-
-const DEFAULT_MAIN_FOLDER = '1qCPS0mAatpr5Yil7t2Zc7hcO9Lbt2ufi';
 
 const VERIFIED_TRIPS: AlbumFolder[] = [
   {
@@ -222,7 +222,8 @@ const VERIFIED_TRIPS: AlbumFolder[] = [
   },
 ];
 
-type MainTab = 'featured' | 'photos' | 'videos' | 'collections';
+type MainTab = 'featured' | 'photos' | 'videos';
+type FocusZone = 'tabs' | 'hero' | 'cards' | 'highlights';
 
 function CinematicTVPlatform() {
   const router = useRouter();
@@ -231,7 +232,9 @@ function CinematicTVPlatform() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<MainTab>('featured');
   const [featuredIndex, setFeaturedIndex] = useState(0); // 0 to 4
-  const [selectedCardIndex, setSelectedCardIndex] = useState(0);
+  const [focusZone, setFocusZone] = useState<FocusZone>('cards');
+  const [heroActionFocus, setHeroActionFocus] = useState<'primary' | 'secondary'>('primary');
+  const [highlightFocusIndex, setHighlightFocusIndex] = useState(0);
 
   // Player States
   const [inSlideshow, setInSlideshow] = useState(false);
@@ -240,10 +243,10 @@ function CinematicTVPlatform() {
   const [activeVideoPlaylist, setActiveVideoPlaylist] = useState<DriveItem[]>([]);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
 
-  // Loading & Cache
+  // Time & Utilities
+  const [currentTimeStr, setCurrentTimeStr] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingTitle, setLoadingTitle] = useState('');
-  const [folderInput, setFolderInput] = useState('');
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const albumPhotosCache = useRef<Map<string, DriveItem[]>>(new Map());
@@ -258,6 +261,23 @@ function CinematicTVPlatform() {
   const lastProcessedSeq = useRef(0);
 
   const activeFeaturedTrip = VERIFIED_TRIPS[featuredIndex];
+
+  // Update Clock
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTimeStr(
+        now.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        })
+      );
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Generate QR Code for Phone Remote
   useEffect(() => {
@@ -287,6 +307,103 @@ function CinematicTVPlatform() {
     });
   }, []);
 
+  // Hierarchical Back Navigation Handler (Ensures we never leave /tv)
+  const handleBack = useCallback(() => {
+    if (inVideoPlayer) {
+      setInVideoPlayer(false);
+      return;
+    }
+    if (inSlideshow) {
+      setInSlideshow(false);
+      return;
+    }
+    if (showQRModal) {
+      setShowQRModal(false);
+      return;
+    }
+    if (activeTab !== 'featured') {
+      setActiveTab('featured');
+      setFocusZone('cards');
+      return;
+    }
+    // If already on featured cards, reset focus zone to cards and remain safely in /tv
+    setFocusZone('cards');
+  }, [inVideoPlayer, inSlideshow, showQRModal, activeTab]);
+
+  // Trap Browser History Back (Keeps TV and Mobile strictly inside /tv)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Push initial history state so back button can be trapped
+    window.history.pushState({ screen: 'tv' }, '', window.location.href);
+
+    const onPopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      // Immediately push state back to keep URL on /tv
+      window.history.pushState({ screen: 'tv' }, '', window.location.href);
+      handleBack();
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [handleBack]);
+
+  // Open Collection for playback
+  const openCollection = useCallback(
+    async (folderId: string, title: string, mode: 'photos' | 'videos') => {
+      setLoadingTitle(title);
+      const cachedItems = albumPhotosCache.current.get(folderId);
+
+      if (cachedItems && cachedItems.length > 0) {
+        if (mode === 'videos') {
+          const videos = cachedItems.filter(
+            i => i.mimeType?.startsWith('video/') || i.name?.match(/\.(mp4|mov|webm)$/i)
+          );
+          if (videos.length > 0) {
+            setActiveVideoPlaylist(videos);
+            setActiveVideoIndex(0);
+            setInVideoPlayer(true);
+            return;
+          }
+        }
+        const photos = cachedItems.filter(i => !i.mimeType?.startsWith('video/'));
+        setActivePhotos(photos.length > 0 ? photos : cachedItems);
+        setInSlideshow(true);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/drive/folder?folder=${encodeURIComponent(folderId)}`);
+        const data = await res.json();
+        if (data.items && data.items.length > 0) {
+          albumPhotosCache.current.set(folderId, data.items);
+          if (mode === 'videos') {
+            const videos = data.items.filter(
+              (i: DriveItem) =>
+                i.mimeType?.startsWith('video/') || i.name?.match(/\.(mp4|mov|webm)$/i)
+            );
+            if (videos.length > 0) {
+              setActiveVideoPlaylist(videos);
+              setActiveVideoIndex(0);
+              setInVideoPlayer(true);
+              return;
+            }
+          }
+          const photos = data.items.filter((i: DriveItem) => !i.mimeType?.startsWith('video/'));
+          setActivePhotos(photos.length > 0 ? photos : data.items);
+          setInSlideshow(true);
+        }
+      } catch (err) {
+        console.error('Failed to open collection:', err);
+      } finally {
+        setIsLoading(false);
+        setLoadingTitle('');
+      }
+    },
+    []
+  );
+
   // Phone Remote Polling Relay (Hyper-responsive 50ms queue polling with zero dropped commands)
   useEffect(() => {
     let isMounted = true;
@@ -312,26 +429,20 @@ function CinematicTVPlatform() {
             // Dispatch command
             if (cmd.type === 'dpad_right') {
               setFeaturedIndex(prev => (prev + 1) % VERIFIED_TRIPS.length);
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
             } else if (cmd.type === 'dpad_left') {
               setFeaturedIndex(prev => (prev - 1 + VERIFIED_TRIPS.length) % VERIFIED_TRIPS.length);
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
             } else if (cmd.type === 'dpad_up') {
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+              setFocusZone(prev => (prev === 'cards' ? 'hero' : prev === 'hero' ? 'tabs' : prev));
             } else if (cmd.type === 'dpad_down') {
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+              setFocusZone(prev => (prev === 'tabs' ? 'hero' : prev === 'hero' ? 'cards' : prev));
             } else if (cmd.type === 'ok') {
               openCollection(
                 activeFeaturedTrip.folderId,
                 activeFeaturedTrip.title,
                 activeTab === 'videos' ? 'videos' : 'photos'
               );
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
             } else if (cmd.type === 'back') {
-              setActiveTab('featured');
-              setInSlideshow(false);
-              setInVideoPlayer(false);
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+              handleBack();
             } else if (cmd.type === 'play_pause') {
               window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
             } else if (cmd.type === 'skip_next') {
@@ -340,12 +451,17 @@ function CinematicTVPlatform() {
               window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
             } else if (cmd.type === 'switch_hub') {
               if (cmd.payload?.tab === 'videos') setActiveTab('videos');
-              else setActiveTab('photos');
+              else if (cmd.payload?.tab === 'photos') setActiveTab('photos');
+              else setActiveTab('featured');
             } else if (cmd.type === 'select_album') {
               if (cmd.payload?.folderId) {
                 const idx = VERIFIED_TRIPS.findIndex(a => a.folderId === cmd.payload.folderId);
                 if (idx !== -1) setFeaturedIndex(idx);
-                openCollection(cmd.payload.folderId, cmd.payload.title, 'photos');
+                openCollection(
+                  cmd.payload.folderId,
+                  cmd.payload.title,
+                  activeTab === 'videos' ? 'videos' : 'photos'
+                );
               }
             } else if (cmd.type === 'cursor_move') {
               // High sensitivity direct glide
@@ -365,8 +481,10 @@ function CinematicTVPlatform() {
                   const clickX = (prev.x / 100) * window.innerWidth;
                   const clickY = (prev.y / 100) * window.innerHeight;
                   const rawTarget = document.elementFromPoint(clickX, clickY) as HTMLElement | null;
-                  const clickable = rawTarget?.closest('button, a, [role="button"], input, select') as HTMLElement | null;
-                  
+                  const clickable = rawTarget?.closest(
+                    'button, a, [role="button"], input, select'
+                  ) as HTMLElement | null;
+
                   if (clickable) {
                     clickable.click();
                   } else if (rawTarget) {
@@ -391,57 +509,9 @@ function CinematicTVPlatform() {
       isMounted = false;
       clearInterval(pollInterval);
     };
-  }, [activeFeaturedTrip, activeTab]);
+  }, [activeFeaturedTrip, activeTab, handleBack, openCollection]);
 
-  // Open Collection for playback
-  const openCollection = async (folderId: string, title: string, mode: 'photos' | 'videos') => {
-    setLoadingTitle(title);
-    const cachedItems = albumPhotosCache.current.get(folderId);
-
-    if (cachedItems && cachedItems.length > 0) {
-      if (mode === 'videos') {
-        const videos = cachedItems.filter(i => i.mimeType?.startsWith('video/') || i.name?.match(/\.(mp4|mov|webm)$/i));
-        if (videos.length > 0) {
-          setActiveVideoPlaylist(videos);
-          setActiveVideoIndex(0);
-          setInVideoPlayer(true);
-          return;
-        }
-      }
-      const photos = cachedItems.filter(i => !i.mimeType?.startsWith('video/'));
-      setActivePhotos(photos.length > 0 ? photos : cachedItems);
-      setInSlideshow(true);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const res = await fetch(`/api/drive/folder?folder=${encodeURIComponent(folderId)}`);
-      const data = await res.json();
-      if (data.items && data.items.length > 0) {
-        albumPhotosCache.current.set(folderId, data.items);
-        if (mode === 'videos') {
-          const videos = data.items.filter((i: DriveItem) => i.mimeType?.startsWith('video/') || i.name?.match(/\.(mp4|mov|webm)$/i));
-          if (videos.length > 0) {
-            setActiveVideoPlaylist(videos);
-            setActiveVideoIndex(0);
-            setInVideoPlayer(true);
-            return;
-          }
-        }
-        const photos = data.items.filter((i: DriveItem) => !i.mimeType?.startsWith('video/'));
-        setActivePhotos(photos.length > 0 ? photos : data.items);
-        setInSlideshow(true);
-      }
-    } catch (err) {
-      console.error('Failed to open collection:', err);
-    } finally {
-      setIsLoading(false);
-      setLoadingTitle('');
-    }
-  };
-
-  // TV Remote Spatial Navigation (D-Pad)
+  // TV Remote Spatial Navigation (D-Pad Keyboard Handler)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (inSlideshow || inVideoPlayer) return;
@@ -449,29 +519,90 @@ function CinematicTVPlatform() {
       switch (e.key) {
         case 'ArrowRight':
           e.preventDefault();
-          setFeaturedIndex(prev => (prev + 1) % VERIFIED_TRIPS.length);
+          if (focusZone === 'cards') {
+            setFeaturedIndex(prev => (prev + 1) % VERIFIED_TRIPS.length);
+          } else if (focusZone === 'tabs') {
+            setActiveTab(prev =>
+              prev === 'featured' ? 'photos' : prev === 'photos' ? 'videos' : 'featured'
+            );
+          } else if (focusZone === 'hero') {
+            setHeroActionFocus(prev => (prev === 'primary' ? 'secondary' : 'primary'));
+          } else if (focusZone === 'highlights') {
+            setHighlightFocusIndex(prev => (prev + 1) % activeFeaturedTrip.highlightShots.length);
+          }
           break;
+
         case 'ArrowLeft':
           e.preventDefault();
-          setFeaturedIndex(prev => (prev - 1 + VERIFIED_TRIPS.length) % VERIFIED_TRIPS.length);
+          if (focusZone === 'cards') {
+            setFeaturedIndex(prev => (prev - 1 + VERIFIED_TRIPS.length) % VERIFIED_TRIPS.length);
+          } else if (focusZone === 'tabs') {
+            setActiveTab(prev =>
+              prev === 'videos' ? 'photos' : prev === 'photos' ? 'featured' : 'videos'
+            );
+          } else if (focusZone === 'hero') {
+            setHeroActionFocus(prev => (prev === 'secondary' ? 'primary' : 'secondary'));
+          } else if (focusZone === 'highlights') {
+            setHighlightFocusIndex(
+              prev =>
+                (prev - 1 + activeFeaturedTrip.highlightShots.length) %
+                activeFeaturedTrip.highlightShots.length
+            );
+          }
           break;
+
+        case 'ArrowUp':
+          e.preventDefault();
+          if (focusZone === 'highlights') setFocusZone('cards');
+          else if (focusZone === 'cards') setFocusZone('hero');
+          else if (focusZone === 'hero') setFocusZone('tabs');
+          break;
+
+        case 'ArrowDown':
+          e.preventDefault();
+          if (focusZone === 'tabs') setFocusZone('hero');
+          else if (focusZone === 'hero') setFocusZone('cards');
+          else if (focusZone === 'cards' && activeTab === 'featured') setFocusZone('highlights');
+          break;
+
         case 'Enter':
           e.preventDefault();
-          openCollection(
-            activeFeaturedTrip.folderId,
-            activeFeaturedTrip.title,
-            activeTab === 'videos' ? 'videos' : 'photos'
-          );
+          if (focusZone === 'hero') {
+            if (heroActionFocus === 'secondary') {
+              openCollection(
+                activeFeaturedTrip.folderId,
+                activeFeaturedTrip.title,
+                activeTab === 'videos' ? 'photos' : 'videos'
+              );
+            } else {
+              openCollection(
+                activeFeaturedTrip.folderId,
+                activeFeaturedTrip.title,
+                activeTab === 'videos' ? 'videos' : 'photos'
+              );
+            }
+          } else if (focusZone === 'cards') {
+            openCollection(
+              activeFeaturedTrip.folderId,
+              activeFeaturedTrip.title,
+              activeTab === 'videos' ? 'videos' : 'photos'
+            );
+          } else if (focusZone === 'highlights') {
+            openCollection(activeFeaturedTrip.folderId, activeFeaturedTrip.title, 'photos');
+          }
           break;
+
         case 'Escape':
         case 'Backspace':
           e.preventDefault();
-          setActiveTab('featured');
+          handleBack();
           break;
+
         default:
-          if (e.keyCode === 10009 || e.keyCode === 461) {
+          // Samsung Tizen (10009), LG webOS (461), Android TV Back (4)
+          if (e.keyCode === 10009 || e.keyCode === 461 || e.keyCode === 4) {
             e.preventDefault();
-            setActiveTab('featured');
+            handleBack();
           }
           break;
       }
@@ -479,7 +610,7 @@ function CinematicTVPlatform() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [inSlideshow, inVideoPlayer, activeFeaturedTrip, activeTab]);
+  }, [inSlideshow, inVideoPlayer, focusZone, heroActionFocus, activeFeaturedTrip, activeTab, handleBack, openCollection]);
 
   // Video Player Overlay
   if (inVideoPlayer && activeVideoPlaylist.length > 0) {
@@ -489,7 +620,11 @@ function CinematicTVPlatform() {
         playlist={activeVideoPlaylist}
         currentIndex={activeVideoIndex}
         onNext={() => setActiveVideoIndex(prev => (prev + 1) % activeVideoPlaylist.length)}
-        onPrev={() => setActiveVideoIndex(prev => (prev - 1 + activeVideoPlaylist.length) % activeVideoPlaylist.length)}
+        onPrev={() =>
+          setActiveVideoIndex(
+            prev => (prev - 1 + activeVideoPlaylist.length) % activeVideoPlaylist.length
+          )
+        }
         onExit={() => setInVideoPlayer(false)}
       />
     );
@@ -513,46 +648,59 @@ function CinematicTVPlatform() {
   return (
     <div className="relative min-h-[100dvh] w-full bg-[#101113] text-[#F5F5F2] select-none font-sans overflow-x-hidden flex flex-col justify-between">
       {/* ========================================================= */}
-      {/* 1. CINEMATIC HERO SPOTLIGHT BACKGROUND                    */}
+      {/* 1. CINEMATIC HERO SPOTLIGHT BACKGROUND (54vh)             */}
       {/* ========================================================= */}
-      <div className="absolute inset-0 h-[72vh] w-full overflow-hidden pointer-events-none">
+      <div className="absolute top-0 left-0 right-0 h-[56vh] md:h-[58vh] max-h-[580px] w-full overflow-hidden pointer-events-none z-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeFeaturedTrip.id}
-            initial={{ opacity: 0, scale: 1.04 }}
+            initial={{ opacity: 0, scale: 1.03 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.9, ease: 'easeOut' }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
             className="relative w-full h-full"
           >
-            {/* Progressive Image: =s320 micro-blurup to =s1400 crisp */}
+            {/* Progressive Image: Micro-blurup to High-Res Crisp */}
             <ProgressiveImage
               fileId={activeFeaturedTrip.coverFileId}
               alt={activeFeaturedTrip.title}
               className="w-full h-full object-cover"
-              highResSize={1600}
+              highResSize={1800}
             />
 
-            {/* Apple TV-style Multi-Layer Gradient Scrim */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#101113] via-[#101113]/70 to-[#101113]/30" />
+            {/* Apple TV-style Multi-Layer Gradient Scrim (Natural contrast without muddy shadows) */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#101113] via-[#101113]/75 to-[#101113]/25" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#101113] via-[#101113]/60 to-transparent" />
           </motion.div>
         </AnimatePresence>
       </div>
 
       {/* ========================================================= */}
-      {/* 2. REFINED TOP CINEMA NAVIGATION                          */}
+      {/* 2. REFINED TOP CINEMA NAVIGATION HEADER                   */}
       {/* ========================================================= */}
-      <header className="relative z-30 flex items-center justify-between px-8 lg:px-14 pt-7 pb-4">
+      <header className="relative z-30 flex items-center justify-between px-6 lg:px-12 pt-6 pb-2">
         {/* Brandmark */}
-        <div className="flex items-center gap-3">
-          <AlamsFrameLogo className="h-8 lg:h-9 w-auto text-[#D8C6A1] filter drop-shadow-md" />
+        <div
+          onClick={() => {
+            setActiveTab('featured');
+            setFocusZone('cards');
+          }}
+          className="flex items-center gap-3 cursor-pointer group"
+        >
+          <AlamsFrameLogo className="h-7 lg:h-8 w-auto text-[#D8C6A1] filter drop-shadow-md group-hover:brightness-110 transition-all" />
         </div>
 
         {/* Minimal Category Switcher */}
-        <nav className="flex items-center gap-1.5 bg-[#191B1F]/90 backdrop-blur-md px-2 py-1 rounded-full border border-[#303238]">
+        <nav
+          className={`flex items-center gap-1.5 bg-[#191B1F]/90 backdrop-blur-md px-2 py-1.5 rounded-full border transition-all ${
+            focusZone === 'tabs' ? 'border-[#D8C6A1] ring-2 ring-[#D8C6A1]/40' : 'border-[#303238]'
+          }`}
+        >
           <button
-            onClick={() => setActiveTab('featured')}
+            onClick={() => {
+              setActiveTab('featured');
+              setFocusZone('cards');
+            }}
             className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all cursor-pointer ${
               activeTab === 'featured'
                 ? 'bg-[#D8C6A1] text-[#101113] shadow-md'
@@ -562,38 +710,52 @@ function CinematicTVPlatform() {
             Spotlight
           </button>
           <button
-            onClick={() => setActiveTab('photos')}
+            onClick={() => {
+              setActiveTab('photos');
+              setFocusZone('cards');
+            }}
             className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all cursor-pointer ${
               activeTab === 'photos'
                 ? 'bg-[#D8C6A1] text-[#101113] shadow-md'
                 : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
             }`}
           >
-            Photos ({totalPhotos})
+            Photos ({totalPhotos.toLocaleString()})
           </button>
           <button
-            onClick={() => setActiveTab('videos')}
+            onClick={() => {
+              setActiveTab('videos');
+              setFocusZone('cards');
+            }}
             className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all cursor-pointer ${
               activeTab === 'videos'
                 ? 'bg-[#D8C6A1] text-[#101113] shadow-md'
                 : 'text-[#A3A6AD] hover:text-[#F5F5F2]'
             }`}
           >
-            Cinema ({totalVideos})
+            Cinema ({totalVideos.toLocaleString()})
           </button>
         </nav>
 
-        {/* Right Utility: QR Remote Pill & Lock Button */}
-        <div className="flex items-center gap-3">
+        {/* Right Utility Deck: Clock, Phone Remote, Logout */}
+        <div className="flex items-center gap-2.5">
+          {/* Live Apple Glass Clock */}
+          <div className="hidden sm:flex items-center gap-2 bg-[#191B1F]/80 border border-[#303238] px-3.5 py-1.5 rounded-full text-xs font-medium text-[#F5F5F2] shadow-sm">
+            <Clock className="w-3.5 h-3.5 text-[#A3A6AD]" />
+            <span>{currentTimeStr || '--:--'}</span>
+          </div>
+
+          {/* Phone Remote Pill */}
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowQRModal(true)}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] border border-[#303238] text-xs font-medium text-[#D8C6A1] cursor-pointer shadow-sm"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] border border-[#303238] text-xs font-medium text-[#D8C6A1] cursor-pointer shadow-sm transition-colors"
           >
             <Smartphone className="w-3.5 h-3.5" />
-            <span>Phone Remote</span>
+            <span className="hidden sm:inline">Phone Remote</span>
           </motion.button>
 
+          {/* Vault Lock / Sign Out */}
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={async () => {
@@ -611,29 +773,29 @@ function CinematicTVPlatform() {
       {/* ========================================================= */}
       {/* 3. HERO CONTENT METADATA & ACTIONS                        */}
       {/* ========================================================= */}
-      <main className="relative z-20 flex-1 flex flex-col justify-end px-8 lg:px-14 pb-4 max-w-5xl">
-        <div className="space-y-3">
+      <main className="relative z-20 flex flex-col justify-end px-6 lg:px-12 pt-1 pb-4 max-w-4xl">
+        <div className="space-y-2.5">
           {/* Metadata Badges */}
-          <div className="flex items-center gap-3 text-xs font-mono tracking-wider text-[#A3A6AD]">
-            <span className="px-2.5 py-0.5 rounded-full bg-[#22252A] border border-[#303238] text-[#D8C6A1] font-semibold">
+          <div className="flex items-center gap-2.5 text-xs font-mono tracking-wider text-[#A3A6AD]">
+            <span className="px-2.5 py-0.5 rounded-full bg-[#191B1F] border border-[#303238] text-[#D8C6A1] font-semibold text-[11px]">
               {activeFeaturedTrip.year}
             </span>
             <span>·</span>
-            <span className="flex items-center gap-1.5">
-              <span>{activeFeaturedTrip.location}</span>
+            <span>{activeFeaturedTrip.location}</span>
+            <span>·</span>
+            <span className="text-[#F5F5F2] font-semibold">
+              {activeTab === 'videos'
+                ? `${activeFeaturedTrip.videoCount} Video Clips`
+                : `${activeFeaturedTrip.photoCount} Photographs`}
             </span>
-            <span>·</span>
-            <span>{activeFeaturedTrip.photoCount} Photos</span>
-            <span>·</span>
-            <span>{activeFeaturedTrip.videoCount} Videos</span>
           </div>
 
           {/* Large Editorial Headline */}
-          <h1 className="text-4xl lg:text-6xl font-bold tracking-tight text-[#F5F5F2] leading-tight drop-shadow-md">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-light tracking-tight text-[#F5F5F2] leading-tight drop-shadow-md">
             {activeFeaturedTrip.title}
           </h1>
 
-          <p className="text-sm lg:text-base text-[#A3A6AD] max-w-2xl font-light leading-relaxed">
+          <p className="text-xs md:text-sm text-[#A3A6AD] max-w-xl font-light leading-relaxed">
             {activeFeaturedTrip.subtitle}
           </p>
 
@@ -649,71 +811,110 @@ function CinematicTVPlatform() {
                   activeTab === 'videos' ? 'videos' : 'photos'
                 )
               }
-              className="px-6 py-3 rounded-full bg-[#F5F5F2] hover:bg-[#E5D7B8] text-[#101113] font-semibold text-xs tracking-wide shadow-xl flex items-center gap-2 cursor-pointer transition-transform"
+              className={`px-6 py-2.5 rounded-full font-semibold text-xs tracking-wide shadow-xl flex items-center gap-2 cursor-pointer transition-all ${
+                focusZone === 'hero' && heroActionFocus === 'primary'
+                  ? 'bg-[#D8C6A1] text-[#101113] ring-2 ring-[#D8C6A1] ring-offset-2 ring-offset-[#101113] scale-[1.02]'
+                  : 'bg-[#F5F5F2] hover:bg-[#E5D7B8] text-[#101113]'
+              }`}
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin text-[#101113]" />
+              ) : activeTab === 'videos' ? (
+                <Film className="w-4 h-4 fill-current text-[#101113]" />
               ) : (
                 <Play className="w-4 h-4 fill-[#101113]" />
               )}
-              <span>Play Collection [OK]</span>
+              <span>
+                {activeTab === 'videos' ? 'Play Cinema Clips [OK]' : 'Play Collection [OK]'}
+              </span>
             </motion.button>
 
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={() =>
-                openCollection(activeFeaturedTrip.folderId, activeFeaturedTrip.title, 'videos')
+                openCollection(
+                  activeFeaturedTrip.folderId,
+                  activeFeaturedTrip.title,
+                  activeTab === 'videos' ? 'photos' : 'videos'
+                )
               }
-              className="px-5 py-3 rounded-full bg-[#191B1F]/90 hover:bg-[#22252A] text-[#F5F5F2] border border-[#303238] font-medium text-xs tracking-wide flex items-center gap-2 cursor-pointer shadow-md"
+              className={`px-5 py-2.5 rounded-full text-[#F5F5F2] border font-medium text-xs tracking-wide flex items-center gap-2 cursor-pointer shadow-md transition-all ${
+                focusZone === 'hero' && heroActionFocus === 'secondary'
+                  ? 'bg-[#22252A] border-[#D8C6A1] ring-2 ring-[#D8C6A1] ring-offset-2 ring-offset-[#101113]'
+                  : 'bg-[#191B1F]/90 hover:bg-[#22252A] border-[#303238]'
+              }`}
             >
-              <Film className="w-3.5 h-3.5 text-[#D8C6A1]" />
-              <span>Watch Videos ({activeFeaturedTrip.videoCount})</span>
+              {activeTab === 'videos' ? (
+                <>
+                  <ImageIcon className="w-3.5 h-3.5 text-[#D8C6A1]" />
+                  <span>Explore Photos ({activeFeaturedTrip.photoCount})</span>
+                </>
+              ) : (
+                <>
+                  <Film className="w-3.5 h-3.5 text-[#D8C6A1]" />
+                  <span>Watch Videos ({activeFeaturedTrip.videoCount})</span>
+                </>
+              )}
             </motion.button>
           </div>
         </div>
       </main>
 
       {/* ========================================================= */}
-      {/* 4. NETFLIX-STYLE HORIZONTAL TRIP CAROUSEL                 */}
+      {/* 4. CURATED TRIPS CAROUSEL (Aspect 16:10, TV-First Focus) */}
       {/* ========================================================= */}
-      <section className="relative z-20 px-8 lg:px-14 pb-8 pt-4">
-        <div className="flex items-center justify-between pb-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xs font-mono uppercase tracking-widest text-[#A3A6AD]">
-              Curated Trips
+      <section className="relative z-20 px-6 lg:px-12 pb-5 pt-3">
+        <div className="flex items-center justify-between pb-2.5">
+          <div className="flex items-center gap-2.5">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-[#D8C6A1] font-semibold">
+              {activeTab === 'videos'
+                ? 'Video Collections'
+                : activeTab === 'photos'
+                ? 'Curated Photo Albums'
+                : 'Curated Trips'}
             </h3>
-            <span className="text-[11px] text-[#6B6E76] font-mono">
-              Use D-pad [&larr; &rarr;] to navigate
+            <span className="text-[11px] text-[#A3A6AD]/70 font-mono hidden sm:inline">
+              D-pad [&larr; &rarr;] to select · [OK] to launch
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-[#A3A6AD]">
-            <span>{featuredIndex + 1}</span>
-            <span className="text-[#6B6E76]">/</span>
+          <div className="flex items-center gap-1.5 text-xs font-mono text-[#A3A6AD]">
+            <span className="text-[#F5F5F2] font-semibold">{featuredIndex + 1}</span>
+            <span className="text-[#303238]">/</span>
             <span>{VERIFIED_TRIPS.length}</span>
           </div>
         </div>
 
         {/* 5 Landscape Collection Cards */}
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 lg:gap-4.5">
           {VERIFIED_TRIPS.map((trip, idx) => {
             const isSelected = featuredIndex === idx;
+            const isFocused = focusZone === 'cards' && isSelected;
 
             return (
               <motion.div
                 key={trip.id}
-                onMouseEnter={() => setFeaturedIndex(idx)}
+                onMouseEnter={() => {
+                  setFeaturedIndex(idx);
+                  setFocusZone('cards');
+                }}
                 onClick={() => {
                   setFeaturedIndex(idx);
-                  openCollection(trip.folderId, trip.title, activeTab === 'videos' ? 'videos' : 'photos');
+                  openCollection(
+                    trip.folderId,
+                    trip.title,
+                    activeTab === 'videos' ? 'videos' : 'photos'
+                  );
                 }}
-                whileHover={{ y: -4 }}
-                transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-                className={`relative rounded-2xl overflow-hidden aspect-[16/10] cursor-pointer transition-all ${
-                  isSelected
-                    ? 'ring-2 ring-[#D8C6A1] shadow-[0_12px_32px_rgba(216,198,161,0.2)] scale-[1.03] z-10'
-                    : 'opacity-70 hover:opacity-100 ring-1 ring-[#303238]'
+                whileHover={{ y: -3 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                className={`relative rounded-2xl overflow-hidden aspect-[16/10] cursor-pointer transition-all border ${
+                  isFocused
+                    ? 'ring-2 ring-[#D8C6A1] ring-offset-2 ring-offset-[#101113] shadow-[0_12px_32px_rgba(0,0,0,0.6),0_0_20px_rgba(216,198,161,0.18)] scale-[1.03] z-10 border-[#D8C6A1]'
+                    : isSelected
+                    ? 'ring-1 ring-[#D8C6A1]/60 border-[#D8C6A1]/40'
+                    : 'opacity-75 hover:opacity-100 border-[#303238]'
                 }`}
               >
                 {/* Progressive Card Thumbnail */}
@@ -725,17 +926,21 @@ function CinematicTVPlatform() {
                   highResSize={600}
                 />
 
-                {/* Scrim Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#101113] via-[#101113]/30 to-transparent" />
+                {/* Soft Bottom-Only Scrim (Keeps imagery bright, text 100% legible) */}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#101113]/90 via-[#101113]/30 to-transparent" />
 
                 {/* Card Title & Counts */}
                 <div className="absolute bottom-3 left-3.5 right-3.5 text-white">
-                  <h4 className="text-sm font-semibold tracking-tight text-[#F5F5F2] truncate">
+                  <h4 className="text-xs sm:text-sm font-semibold tracking-tight text-[#F5F5F2] truncate">
                     {trip.title}
                   </h4>
                   <div className="flex items-center justify-between text-[10px] text-[#A3A6AD] font-mono mt-0.5">
                     <span>{trip.year}</span>
-                    <span>{trip.totalCount} items</span>
+                    <span>
+                      {activeTab === 'videos'
+                        ? `${trip.videoCount} videos`
+                        : `${trip.photoCount} photos`}
+                    </span>
                   </div>
                 </div>
               </motion.div>
@@ -745,7 +950,65 @@ function CinematicTVPlatform() {
       </section>
 
       {/* ========================================================= */}
-      {/* 5. PHONE REMOTE QR MODAL OVERLAY                          */}
+      {/* 5. EDITORIAL HIGHLIGHT MOMENTS (Spotlight Mode Only)       */}
+      {/* ========================================================= */}
+      {activeTab === 'featured' && (
+        <section className="relative z-20 px-6 lg:px-12 pb-7 pt-1">
+          <div className="flex items-center justify-between pb-2.5">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-[#A3A6AD] font-semibold">
+              Highlight Moments · {activeFeaturedTrip.title}
+            </h3>
+            <span className="text-[11px] text-[#A3A6AD]/60 font-mono">
+              Curated Shots
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            {activeFeaturedTrip.highlightShots.map((shot, sIdx) => {
+              const isHighlightFocused = focusZone === 'highlights' && highlightFocusIndex === sIdx;
+
+              return (
+                <motion.div
+                  key={shot.fileId}
+                  onClick={() =>
+                    openCollection(activeFeaturedTrip.folderId, activeFeaturedTrip.title, 'photos')
+                  }
+                  whileHover={{ y: -2 }}
+                  className={`group relative rounded-xl overflow-hidden bg-[#191B1F] border p-3 flex items-center gap-3.5 cursor-pointer transition-all ${
+                    isHighlightFocused
+                      ? 'border-[#D8C6A1] ring-2 ring-[#D8C6A1]/40 bg-[#22252A]'
+                      : 'border-[#303238] hover:border-[#D8C6A1]/40 hover:bg-[#22252A]/60'
+                  }`}
+                >
+                  <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 relative">
+                    <ProgressiveImage
+                      fileId={shot.fileId}
+                      alt={shot.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      lowResSize={180}
+                      highResSize={360}
+                    />
+                  </div>
+                  <div className="overflow-hidden">
+                    <span className="text-[9px] font-mono uppercase text-[#D8C6A1] tracking-wider block font-semibold">
+                      {shot.tag}
+                    </span>
+                    <h5 className="text-xs font-semibold text-[#F5F5F2] truncate mt-0.5">
+                      {shot.title}
+                    </h5>
+                    <p className="text-[10px] text-[#A3A6AD] truncate font-light">
+                      {shot.subtitle}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ========================================================= */}
+      {/* 6. PHONE REMOTE QR MODAL OVERLAY                          */}
       {/* ========================================================= */}
       <AnimatePresence>
         {showQRModal && (
@@ -802,7 +1065,7 @@ function CinematicTVPlatform() {
       </AnimatePresence>
 
       {/* ========================================================= */}
-      {/* 6. VIRTUAL MOUSE CURSOR OVERLAY (Controllable via Phone)  */}
+      {/* 7. VIRTUAL MOUSE CURSOR OVERLAY (Controllable via Phone)  */}
       {/* ========================================================= */}
       {tvCursor.visible && (
         <motion.div

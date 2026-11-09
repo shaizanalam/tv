@@ -35,7 +35,7 @@ export function TVNavbar({
   return (
     <header className="w-full flex items-center justify-between pb-6 select-none">
       {/* Brand Identity */}
-      <Link href="/" className="flex items-center gap-4 group">
+      <Link href="/tv" className="flex items-center gap-4 group cursor-pointer">
         <AlamsFrameLogo className="h-7 w-auto text-[#F5F5F2] group-hover:text-[#D8C6A1] transition-colors" />
         <span className="text-xs text-[#A3A6AD] font-light tracking-wider uppercase pl-3 border-l border-[#303238]">
           {subtitle}
