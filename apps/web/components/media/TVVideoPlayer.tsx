@@ -43,9 +43,9 @@ export function TVVideoPlayer({
   const [hasError, setHasError] = useState(false);
   const lastTimeUpdate = useRef(0);
 
-  // Direct Google Cloud Edge CDN URL (HTTP/2 persistent multiplexing, zero redirects, zero stutter)
+  // Same-origin stream route with instant Google CDN resolution (zero CORS, hardware Range decode)
   const videoFileId = video.fileId || video.id;
-  const directStreamSrc = `https://www.googleapis.com/drive/v3/files/${videoFileId}?alt=media&key=${GOOGLE_CLIENT_KEY}`;
+  const videoStreamSrc = `/api/drive/video?id=${videoFileId}`;
 
   // Instant High-Res Poster to eliminate any initial black frame
   const posterUrl = video.thumbnailLink
@@ -126,18 +126,11 @@ export function TVVideoPlayer({
           break;
         case 'ArrowRight':
           e.preventDefault();
-          if (videoRef.current) {
-            videoRef.current.currentTime = Math.min(
-              videoRef.current.duration || 0,
-              videoRef.current.currentTime + 10
-            );
-          }
+          onNext();
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          if (videoRef.current) {
-            videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
-          }
+          onPrev();
           break;
         case 'ArrowUp':
           e.preventDefault();
@@ -197,7 +190,7 @@ export function TVVideoPlayer({
       {/* 100% Native Edge Streaming Video Element */}
       <video
         ref={videoRef}
-        src={directStreamSrc}
+        src={videoStreamSrc}
         poster={posterUrl}
         preload="auto"
         autoPlay
@@ -326,7 +319,7 @@ export function TVVideoPlayer({
                   {cleanTitle}
                 </h1>
                 <p className="text-xs text-[#A3A6AD] font-light mt-0.5">
-                  Remote D-pad: [Left/Right] seek 10s · [OK] Pause · [Up/Down] Volume
+                  Remote D-pad: [Left/Right] Prev / Next Video · [OK] Pause · [Up/Down] Volume
                 </p>
               </div>
 

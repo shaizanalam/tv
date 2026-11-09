@@ -429,9 +429,21 @@ function CinematicTVPlatform() {
 
             // Dispatch command
             if (cmd.type === 'dpad_right') {
-              setFeaturedIndex(prev => (prev + 1) % VERIFIED_TRIPS.length);
+              if (inVideoPlayer) {
+                setActiveVideoIndex(prev => (activeVideoPlaylist.length > 0 ? (prev + 1) % activeVideoPlaylist.length : 0));
+              } else if (inSlideshow) {
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+              } else {
+                setFeaturedIndex(prev => (prev + 1) % VERIFIED_TRIPS.length);
+              }
             } else if (cmd.type === 'dpad_left') {
-              setFeaturedIndex(prev => (prev - 1 + VERIFIED_TRIPS.length) % VERIFIED_TRIPS.length);
+              if (inVideoPlayer) {
+                setActiveVideoIndex(prev => (activeVideoPlaylist.length > 0 ? (prev - 1 + activeVideoPlaylist.length) % activeVideoPlaylist.length : 0));
+              } else if (inSlideshow) {
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+              } else {
+                setFeaturedIndex(prev => (prev - 1 + VERIFIED_TRIPS.length) % VERIFIED_TRIPS.length);
+              }
             } else if (cmd.type === 'dpad_up') {
               setFocusZone(prev => (prev === 'cards' ? 'hero' : prev === 'hero' ? 'tabs' : prev));
             } else if (cmd.type === 'dpad_down') {
@@ -447,9 +459,17 @@ function CinematicTVPlatform() {
             } else if (cmd.type === 'play_pause') {
               window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
             } else if (cmd.type === 'skip_next') {
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n' }));
+              if (inVideoPlayer) {
+                setActiveVideoIndex(prev => (activeVideoPlaylist.length > 0 ? (prev + 1) % activeVideoPlaylist.length : 0));
+              } else {
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n' }));
+              }
             } else if (cmd.type === 'skip_prev') {
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
+              if (inVideoPlayer) {
+                setActiveVideoIndex(prev => (activeVideoPlaylist.length > 0 ? (prev - 1 + activeVideoPlaylist.length) % activeVideoPlaylist.length : 0));
+              } else {
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
+              }
             } else if (cmd.type === 'switch_hub') {
               if (cmd.payload?.tab === 'videos') setActiveTab('videos');
               else if (cmd.payload?.tab === 'photos') setActiveTab('photos');

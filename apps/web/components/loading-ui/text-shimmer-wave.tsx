@@ -77,3 +77,4 @@ export function TextShimmerWaveDemo() {
     <TextShimmerWave className="text-xl font-medium">Alam&apos;s</TextShimmerWave>
   );
 }
+
