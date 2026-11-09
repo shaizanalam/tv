@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense, useCallback, useRef } from 'react';
+import React, { useState, useEffect, Suspense, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -19,8 +19,11 @@ import {
   ChevronRight,
   Moon,
   Sun,
+  Video,
 } from 'lucide-react';
 import { SlideshowPlayer } from '@/components/slideshow/SlideshowPlayer';
+import { TVVideoPlayer } from '@/components/media/TVVideoPlayer';
+import { ProgressiveImage } from '@/components/media/ProgressiveImage';
 import { DriveItem } from '@/lib/types';
 
 /* ============================================================
@@ -28,7 +31,7 @@ import { DriveItem } from '@/lib/types';
    ============================================================ */
 
 export interface HighlightShot {
-  url: string;
+  fileId: string;
   tag: string;
   title: string;
   subtitle: string;
@@ -39,7 +42,7 @@ export interface AlbumFolder {
   folderId: string;
   title: string;
   subtitle: string;
-  coverThumbnailUrl: string;
+  coverFileId: string;
   highlightShots: HighlightShot[];
   photoCount: number;
   videoCount: number;
@@ -52,32 +55,32 @@ export interface AlbumFolder {
 
 const DEFAULT_MAIN_FOLDER = '1qCPS0mAatpr5Yil7t2Zc7hcO9Lbt2ufi';
 
-// 5 verified collections
+// 5 verified collections with stable Google Drive File IDs
 const VERIFIED_TRIPS: AlbumFolder[] = [
   {
     id: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
     folderId: '1uIU9-3QEzlUIZPwYGTvWXrf0133WH2za',
     title: 'Dubai 2025',
     subtitle: 'Desert & Skyline Memories',
-    coverThumbnailUrl: '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv',
+    coverFileId: '1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv',
     totalCount: 351,
     photoCount: 337,
     videoCount: 14,
     highlightShots: [
       {
-        url: '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv',
+        fileId: '1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv',
         tag: 'DUBAI MALL',
         title: 'Dubai Mall Emaar',
         subtitle: 'City Center & Palm Boulevard',
       },
       {
-        url: '/api/drive/image?id=1hGR38jxsBQrAbIdQmG8KqKnP8pN2Nilq',
+        fileId: '1hGR38jxsBQrAbIdQmG8KqKnP8pN2Nilq',
         tag: 'ARCHITECTURE',
         title: 'Futuristic Skyline',
         subtitle: 'Geometric Glass & Palms',
       },
       {
-        url: '/api/drive/image?id=1rNz-ddmnzBBGRUY1V1Xoef1Gm7Z4QZ_n',
+        fileId: '1rNz-ddmnzBBGRUY1V1Xoef1Gm7Z4QZ_n',
         tag: 'CITY LIGHTS',
         title: 'Evening Boulevard',
         subtitle: 'Golden Hour Memories',
@@ -89,25 +92,25 @@ const VERIFIED_TRIPS: AlbumFolder[] = [
     folderId: '17rjsvO8qP2dAime91juLLN1q68ADloZS',
     title: 'Ajmer Agra 25',
     subtitle: 'Taj Mahal & Heritage Journey',
-    coverThumbnailUrl: '/api/drive/image?id=1GDyj4qioexLHWgWOow3johLzVJrt7DBi',
+    coverFileId: '1GDyj4qioexLHWgWOow3johLzVJrt7DBi',
     totalCount: 404,
     photoCount: 326,
     videoCount: 78,
     highlightShots: [
       {
-        url: '/api/drive/image?id=1GDyj4qioexLHWgWOow3johLzVJrt7DBi',
+        fileId: '1GDyj4qioexLHWgWOow3johLzVJrt7DBi',
         tag: 'ROADTRIP',
         title: 'Expressway Highway',
         subtitle: 'Family Drive to the Taj',
       },
       {
-        url: '/api/drive/image?id=1Ul1iyrpdoV7xUvy9G-t1aG9otBu2V12R',
+        fileId: '1Ul1iyrpdoV7xUvy9G-t1aG9otBu2V12R',
         tag: 'HERITAGE',
         title: 'Ajmer Sharif Dargah',
         subtitle: 'Courtyard & Historic Dome',
       },
       {
-        url: '/api/drive/image?id=12er1qFhLNpVuLyltGHlaG8AeulPRKhNn',
+        fileId: '12er1qFhLNpVuLyltGHlaG8AeulPRKhNn',
         tag: 'MUGHAL PALACE',
         title: 'Agra Fort Views',
         subtitle: 'Red Sandstone Pavilions',
@@ -119,25 +122,25 @@ const VERIFIED_TRIPS: AlbumFolder[] = [
     folderId: '15lQOoy7sjDZvTGB1MP9SI1v-2hMLo-Gs',
     title: 'Meccah & Madina',
     subtitle: 'Holy Journey & Family Moments',
-    coverThumbnailUrl: '/api/drive/image?id=1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0',
+    coverFileId: '1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0',
     totalCount: 593,
     photoCount: 561,
     videoCount: 32,
     highlightShots: [
       {
-        url: '/api/drive/image?id=1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0',
+        fileId: '1GXYdHksps-F99oQpQHIwPUiEb8eg2XO0',
         tag: 'IHRAM GARMENTS',
         title: 'Holy Pilgrimage',
         subtitle: 'Family Departure in White Ihram',
       },
       {
-        url: '/api/drive/image?id=1SYevfhMSNcnJp5Kx-mRfcePA2pS5HQqQ',
+        fileId: '1SYevfhMSNcnJp5Kx-mRfcePA2pS5HQqQ',
         tag: 'HOLY MOSQUE',
         title: 'Sanctuary of Makkah',
         subtitle: 'Spiritual Peace & Prayers',
       },
       {
-        url: '/api/drive/image?id=15-rV7xGt9IWRIhA7FPSKCs2UATsyk-Ma',
+        fileId: '15-rV7xGt9IWRIhA7FPSKCs2UATsyk-Ma',
         tag: 'MADINA CITY',
         title: 'Streets of Madinah',
         subtitle: 'Family Gathering & Peace',
@@ -149,25 +152,25 @@ const VERIFIED_TRIPS: AlbumFolder[] = [
     folderId: '1IBD6D1qvMTG90WueDHNhiJc6K63hRdDp',
     title: 'GoPro-Exports',
     subtitle: 'Action Clips & Travel Footage',
-    coverThumbnailUrl: '/api/drive/image?id=1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z',
+    coverFileId: '1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z',
     totalCount: 259,
     photoCount: 132,
     videoCount: 127,
     highlightShots: [
       {
-        url: '/api/drive/image?id=1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z',
+        fileId: '1IYhsZ6Y1jbaBolp4_U38QfDzaRUnwz6Z',
         tag: 'AIRPORT VIEW',
         title: 'Runway Flight Deck',
         subtitle: 'Watching the Airplanes',
       },
       {
-        url: '/api/drive/image?id=1qWfYQ3RC3CUd7kDqXsUqDy7Lv8kOBm1a',
+        fileId: '1qWfYQ3RC3CUd7kDqXsUqDy7Lv8kOBm1a',
         tag: 'GOPRO 4K',
         title: 'Wide Angle Action',
         subtitle: 'Cinematic Travel Reels',
       },
       {
-        url: '/api/drive/image?id=1DOqWLmLHH1-MfMTN7riOl7_IidSkx5NQ',
+        fileId: '1DOqWLmLHH1-MfMTN7riOl7_IidSkx5NQ',
         tag: 'HIGHLIGHTS',
         title: 'Motion & Adventures',
         subtitle: 'Dynamic Travel Clips',
@@ -179,25 +182,25 @@ const VERIFIED_TRIPS: AlbumFolder[] = [
     folderId: '1OcPf822VdQ2VqqdfPuIap_2V_jJnByzC',
     title: 'Pachmari',
     subtitle: 'Hill Station & Nature Trails',
-    coverThumbnailUrl: '/api/drive/image?id=17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91',
+    coverFileId: '17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91',
     totalCount: 292,
     photoCount: 222,
     videoCount: 70,
     highlightShots: [
       {
-        url: '/api/drive/image?id=17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91',
+        fileId: '17Z3gnh-D9jrhm94oLyJySnX4k0bA-t91',
         tag: 'HILL RESORT',
         title: 'Heritage Bungalow',
         subtitle: 'Queen of Satpura Greens',
       },
       {
-        url: '/api/drive/image?id=1q3f6-_peYW3KjdG0WRnhz0hrnpfgofH2',
+        fileId: '1q3f6-_peYW3KjdG0WRnhz0hrnpfgofH2',
         tag: 'MOUNTAIN VALLEY',
         title: 'Valley Vistas',
         subtitle: 'Pine Mist & Escarpments',
       },
       {
-        url: '/api/drive/image?id=16jw0tKCVHKxbiLs-mErs7Qtm20DeDyIi',
+        fileId: '16jw0tKCVHKxbiLs-mErs7Qtm20DeDyIi',
         tag: 'PINE TRAILS',
         title: 'Forest Footpaths',
         subtitle: 'Nature Walks & Waterfalls',
@@ -206,9 +209,8 @@ const VERIFIED_TRIPS: AlbumFolder[] = [
   },
 ];
 
-const FALLBACK_COVER = '/api/drive/image?id=1f0R4cGah8w1taWaCLgCXwVvC4Qo-4uPv';
-
 type FocusSection = 'slats' | 'arch' | 'rightCards' | 'dock' | 'search';
+type MediaHubTab = 'photos' | 'videos';
 
 /* ============================================================
    Apple Motion Springs
@@ -247,18 +249,28 @@ function CreativeTVContent() {
   const searchParams = useSearchParams();
   const { isDark, toggle: toggleTheme } = useDarkMode();
 
+  // Media Hub View Mode: 'photos' | 'videos'
+  const [activeMediaTab, setActiveMediaTab] = useState<MediaHubTab>('photos');
+
   const [albums, setAlbums] = useState<AlbumFolder[]>(VERIFIED_TRIPS);
   const [selectedAlbumIndex, setSelectedAlbumIndex] = useState(0);
   const [expandedSlatIndex, setExpandedSlatIndex] = useState(0);
   const [dockFocusIndex, setDockFocusIndex] = useState(5);
+
+  // Slideshow Player State (Photos)
   const [inSlideshow, setInSlideshow] = useState(false);
   const [activePhotos, setActivePhotos] = useState<DriveItem[]>([]);
+
+  // Video Player State (Videos)
+  const [inVideoPlayer, setInVideoPlayer] = useState(false);
+  const [activeVideoPlaylist, setActiveVideoPlaylist] = useState<DriveItem[]>([]);
+  const [activeVideoIndex, setActiveVideoIndex] = useState(0);
+
   const [timeStr, setTimeStr] = useState('');
   const [dateStr, setDateStr] = useState('');
   const [folderInput, setFolderInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingAlbumTitle, setLoadingAlbumTitle] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
 
   const albumPhotosCache = useRef<Map<string, DriveItem[]>>(new Map());
   const [focusSection, setFocusSection] = useState<FocusSection>('slats');
@@ -279,7 +291,7 @@ function CreativeTVContent() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch albums
+  // Fetch albums & preload metadata
   const fetchAlbums = useCallback(async (targetId: string) => {
     try {
       const res = await fetch(`/api/drive/folder?folder=${encodeURIComponent(targetId)}`);
@@ -292,7 +304,7 @@ function CreativeTVContent() {
                 ...trip,
                 ...found,
                 subtitle: trip.subtitle,
-                coverThumbnailUrl: trip.coverThumbnailUrl,
+                coverFileId: trip.coverFileId,
                 highlightShots: trip.highlightShots,
               }
             : trip;
@@ -312,7 +324,7 @@ function CreativeTVContent() {
                   if (!it.mimeType?.startsWith('video/')) {
                     const preload = new Image();
                     preload.referrerPolicy = 'no-referrer';
-                    preload.src = `https://lh3.googleusercontent.com/d/${it.fileId || it.id}=s1600`;
+                    preload.src = `https://lh3.googleusercontent.com/d/${it.fileId || it.id}=s1400`;
                   }
                 }
               }
@@ -320,13 +332,23 @@ function CreativeTVContent() {
             .catch(() => {});
         });
       } else if (data.items && data.items.length > 0) {
-        setActivePhotos(data.items);
-        setInSlideshow(true);
+        // Direct folder opened
+        const photosOnly = data.items.filter((item: DriveItem) => !item.mimeType?.startsWith('video/'));
+        const videosOnly = data.items.filter((item: DriveItem) => item.mimeType?.startsWith('video/') || item.name?.match(/\.(mp4|mov|webm)$/i));
+
+        if (activeMediaTab === 'videos' && videosOnly.length > 0) {
+          setActiveVideoPlaylist(videosOnly);
+          setActiveVideoIndex(0);
+          setInVideoPlayer(true);
+        } else {
+          setActivePhotos(photosOnly.length > 0 ? photosOnly : data.items);
+          setInSlideshow(true);
+        }
       }
     } catch {
       setAlbums(VERIFIED_TRIPS);
     }
-  }, []);
+  }, [activeMediaTab]);
 
   useEffect(() => {
     const target = searchParams.get('folder') || DEFAULT_MAIN_FOLDER;
@@ -334,11 +356,23 @@ function CreativeTVContent() {
     fetchAlbums(target);
   }, [searchParams, fetchAlbums]);
 
+  // Open Album (Instant if pre-cached!)
   const openAlbum = async (folderId: string, title?: string) => {
     setLoadingAlbumTitle(title || 'Album');
     const cachedItems = albumPhotosCache.current.get(folderId);
+
     if (cachedItems && cachedItems.length > 0) {
-      setActivePhotos(cachedItems);
+      if (activeMediaTab === 'videos') {
+        const videos = cachedItems.filter(i => i.mimeType?.startsWith('video/') || i.name?.match(/\.(mp4|mov|webm)$/i));
+        if (videos.length > 0) {
+          setActiveVideoPlaylist(videos);
+          setActiveVideoIndex(0);
+          setInVideoPlayer(true);
+          return;
+        }
+      }
+      const photos = cachedItems.filter(i => !i.mimeType?.startsWith('video/'));
+      setActivePhotos(photos.length > 0 ? photos : cachedItems);
       setInSlideshow(true);
       return;
     }
@@ -349,7 +383,17 @@ function CreativeTVContent() {
       const data = await res.json();
       if (data.items && data.items.length > 0) {
         albumPhotosCache.current.set(folderId, data.items);
-        setActivePhotos(data.items);
+        if (activeMediaTab === 'videos') {
+          const videos = data.items.filter((i: DriveItem) => i.mimeType?.startsWith('video/') || i.name?.match(/\.(mp4|mov|webm)$/i));
+          if (videos.length > 0) {
+            setActiveVideoPlaylist(videos);
+            setActiveVideoIndex(0);
+            setInVideoPlayer(true);
+            return;
+          }
+        }
+        const photos = data.items.filter((i: DriveItem) => !i.mimeType?.startsWith('video/'));
+        setActivePhotos(photos.length > 0 ? photos : data.items);
         setInSlideshow(true);
       }
     } catch (err) {
@@ -360,15 +404,25 @@ function CreativeTVContent() {
     }
   };
 
+  // Play Master Collection (All 1,899 Photos or all Videos)
   const playMasterCollection = async () => {
-    setLoadingAlbumTitle('All Trips (1,899 Items)');
     let combined: DriveItem[] = [];
     for (const [, items] of albumPhotosCache.current.entries()) {
       combined = combined.concat(items);
     }
 
     if (combined.length > 0) {
-      const shuffled = [...combined].sort(() => Math.random() - 0.5);
+      if (activeMediaTab === 'videos') {
+        const allVideos = combined.filter(i => i.mimeType?.startsWith('video/') || i.name?.match(/\.(mp4|mov|webm)$/i));
+        if (allVideos.length > 0) {
+          setActiveVideoPlaylist(allVideos);
+          setActiveVideoIndex(0);
+          setInVideoPlayer(true);
+          return;
+        }
+      }
+      const allPhotos = combined.filter(i => !i.mimeType?.startsWith('video/'));
+      const shuffled = [...(allPhotos.length > 0 ? allPhotos : combined)].sort(() => Math.random() - 0.5);
       setActivePhotos(shuffled);
       setInSlideshow(true);
       return;
@@ -385,7 +439,7 @@ function CreativeTVContent() {
   // TV Remote controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (inSlideshow) return;
+      if (inSlideshow || inVideoPlayer) return;
 
       switch (e.key) {
         case 'ArrowRight':
@@ -474,6 +528,13 @@ function CreativeTVContent() {
           }
           break;
 
+        case 'v':
+        case 'V':
+          // Remote hotkey: Toggle between Photos and Videos hub
+          e.preventDefault();
+          setActiveMediaTab(prev => (prev === 'photos' ? 'videos' : 'photos'));
+          break;
+
         case 'Escape':
         case 'Backspace':
           e.preventDefault();
@@ -498,9 +559,25 @@ function CreativeTVContent() {
     albums,
     activeFeaturedTrip,
     inSlideshow,
+    inVideoPlayer,
     router,
   ]);
 
+  // Video Player View (Full TV Experience)
+  if (inVideoPlayer && activeVideoPlaylist.length > 0) {
+    return (
+      <TVVideoPlayer
+        video={activeVideoPlaylist[activeVideoIndex]}
+        playlist={activeVideoPlaylist}
+        currentIndex={activeVideoIndex}
+        onNext={() => setActiveVideoIndex(prev => (prev + 1) % activeVideoPlaylist.length)}
+        onPrev={() => setActiveVideoIndex(prev => (prev - 1 + activeVideoPlaylist.length) % activeVideoPlaylist.length)}
+        onExit={() => setInVideoPlayer(false)}
+      />
+    );
+  }
+
+  // Slideshow Player View (Photos)
   if (inSlideshow) {
     return (
       <SlideshowPlayer
@@ -511,6 +588,10 @@ function CreativeTVContent() {
       />
     );
   }
+
+  // Total counts across all 5 collections
+  const totalPhotos = albums.reduce((acc, alb) => acc + (alb.photoCount || 0), 0);
+  const totalVideos = albums.reduce((acc, alb) => acc + (alb.videoCount || 0), 0);
 
   return (
     <div
@@ -550,7 +631,7 @@ function CreativeTVContent() {
                   Opening {loadingAlbumTitle || 'Collection'}
                 </h3>
                 <p className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                  Loading photos…
+                  Loading {activeMediaTab === 'videos' ? 'videos' : 'photos'}…
                 </p>
               </div>
             </motion.div>
@@ -559,17 +640,41 @@ function CreativeTVContent() {
       </AnimatePresence>
 
       {/* ========================================================= */}
-      {/* 1. CLEAN MINIMAL HEADER                                   */}
+      {/* 1. CLEAN MINIMAL HEADER WITH DEDICATED MEDIA HUBS         */}
       {/* ========================================================= */}
       <header className="relative z-20 flex items-center justify-between pb-2">
-        {/* Brand & Collection Count */}
-        <div className="flex items-center gap-3">
+        {/* Brand & Media Hub Selector (Photos vs Videos) */}
+        <div className="flex items-center gap-4">
           <span className="text-base font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
             DriveFrame
           </span>
-          <span className="text-xs px-2.5 py-0.5 rounded-full font-mono" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-            5 Trips · 1,899 Items
-          </span>
+
+          {/* Netflix-Style Segregated Hub Tabs */}
+          <div className="glass flex items-center p-1 rounded-full gap-1">
+            <button
+              onClick={() => setActiveMediaTab('photos')}
+              className={`flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold cursor-pointer transition-all ${
+                activeMediaTab === 'photos'
+                  ? 'bg-amber-400 text-black shadow-sm'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>Photos ({totalPhotos})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveMediaTab('videos')}
+              className={`flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold cursor-pointer transition-all ${
+                activeMediaTab === 'videos'
+                  ? 'bg-amber-400 text-black shadow-sm'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <Film className="w-3.5 h-3.5" />
+              <span>Videos ({totalVideos})</span>
+            </button>
+          </div>
         </div>
 
         {/* Right: Theme Toggle & Search */}
@@ -611,7 +716,7 @@ function CreativeTVContent() {
       {/* 2. MAIN 3-PANEL SHOWCASE (Roomy, Airy Layout)              */}
       {/* ========================================================= */}
       <main className="relative z-10 flex-1 grid grid-cols-12 gap-6 items-center my-auto">
-        {/* LEFT: 3 Highlight Slats */}
+        {/* LEFT: 3 Highlight Slats with Progressive Image Decodes */}
         <div className="col-span-6 h-[66vh] flex gap-3">
           {activeHighlights.map((shot, idx) => {
             const isCenterSlat = idx === 0;
@@ -620,7 +725,7 @@ function CreativeTVContent() {
 
             return (
               <motion.div
-                key={shot.url + idx}
+                key={shot.fileId + idx}
                 onMouseEnter={() => {
                   setFocusSection('slats');
                   setExpandedSlatIndex(idx);
@@ -640,19 +745,11 @@ function CreativeTVContent() {
                   outlineOffset: '3px',
                 }}
               >
-                <div className="absolute inset-0 skeleton" />
-                <img
-                  src={shot.url}
+                {/* 2-Tier Progressive Blur-Up Engine (Instant micro-thumbnail -> Crisp Retina Stream) */}
+                <ProgressiveImage
+                  fileId={shot.fileId}
                   alt={shot.title}
-                  referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
-                  onError={e => {
-                    const target = e.currentTarget;
-                    target.onerror = null;
-                    target.src = FALLBACK_COVER;
-                  }}
-                  className="relative w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
-                  loading="eager"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
                 />
                 <div className="absolute inset-0" style={{ background: 'var(--scrim)' }} />
 
@@ -665,7 +762,13 @@ function CreativeTVContent() {
                       color: 'var(--accent)',
                     }}
                   >
-                    {shot.tag}
+                    {activeMediaTab === 'videos' ? (
+                      <span className="flex items-center gap-1">
+                        <Video className="w-2.5 h-2.5" /> VIDEO REEL
+                      </span>
+                    ) : (
+                      shot.tag
+                    )}
                   </div>
                   <h3 className="text-xl font-bold tracking-tight text-white drop-shadow truncate">
                     {shot.title}
@@ -720,7 +823,9 @@ function CreativeTVContent() {
                   {activeFeaturedTrip.title}
                 </p>
                 <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                  {activeFeaturedTrip.totalCount} items
+                  {activeMediaTab === 'videos'
+                    ? `${activeFeaturedTrip.videoCount} Videos`
+                    : `${activeFeaturedTrip.photoCount} Photos`}
                 </p>
               </div>
             </div>
@@ -737,12 +842,14 @@ function CreativeTVContent() {
               }}
             >
               <Play className="w-3 h-3 fill-current" />
-              <span>Play Album</span>
+              <span>
+                {activeMediaTab === 'videos' ? 'Watch Videos' : `Play ${activeFeaturedTrip.title}`}
+              </span>
             </motion.button>
           </motion.div>
         </div>
 
-        {/* RIGHT: Floating Cards for the 5 Trips */}
+        {/* RIGHT: Floating Cards for the 5 Trips with Badge Counts */}
         <div className="col-span-3 h-[66vh] flex flex-col justify-center gap-2.5 py-1">
           {albums.map((album, idx) => {
             const isSelected = selectedAlbumIndex === idx;
@@ -768,21 +875,22 @@ function CreativeTVContent() {
                 }}
               >
                 <div className="flex items-center gap-3 truncate">
-                  <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 skeleton">
-                    <img
-                      src={album.coverThumbnailUrl}
+                  {/* Progressive Micro-Thumbnail */}
+                  <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 skeleton relative">
+                    <ProgressiveImage
+                      fileId={album.coverFileId}
                       alt={album.title}
-                      referrerPolicy="no-referrer"
-                      crossOrigin="anonymous"
-                      onError={e => {
-                        const target = e.currentTarget;
-                        target.onerror = null;
-                        target.src = FALLBACK_COVER;
-                      }}
                       className="w-full h-full object-cover"
-                      loading="lazy"
+                      lowResSize={200}
+                      highResSize={400}
                     />
+                    {activeMediaTab === 'videos' && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <Play className="w-3 h-3 fill-white text-white opacity-80" />
+                      </div>
+                    )}
                   </div>
+
                   <div className="truncate">
                     <h4
                       className="text-xs font-semibold truncate"
@@ -791,7 +899,11 @@ function CreativeTVContent() {
                       {album.title}
                     </h4>
                     <p className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                      {album.totalCount} items
+                      {activeMediaTab === 'videos' ? (
+                        <span className="text-amber-400 font-semibold">{album.videoCount} Videos</span>
+                      ) : (
+                        <span>{album.photoCount} Photos</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -818,9 +930,14 @@ function CreativeTVContent() {
         className="relative z-20 flex items-center justify-between pt-2"
         style={{ borderTop: '1px solid var(--separator)' }}
       >
-        <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
-          Living Room TV
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
+            Living Room TV
+          </span>
+          <span className="text-[10px] font-mono text-stone-500">
+            · Press [V] to switch Hub
+          </span>
+        </div>
 
         {/* Controls */}
         <div className="flex items-center gap-2">
@@ -863,10 +980,10 @@ function CreativeTVContent() {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={playMasterCollection}
-            className="px-3 py-1 rounded-full text-xs font-medium cursor-pointer"
+            className="px-3.5 py-1 rounded-full text-xs font-semibold cursor-pointer transition-all"
             style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}
           >
-            Play All (1,899)
+            {activeMediaTab === 'videos' ? `Play All Videos (${totalVideos})` : `Play All Photos (${totalPhotos})`}
           </motion.button>
         </div>
 
