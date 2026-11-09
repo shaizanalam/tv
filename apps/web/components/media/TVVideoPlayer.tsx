@@ -10,8 +10,8 @@ import {
   SkipBack,
   RotateCcw,
   Film,
-  Loader2,
 } from 'lucide-react';
+import { TextShimmerWave } from '@/components/loading-ui/text-shimmer-wave';
 import { DriveItem } from '@/lib/types';
 
 interface TVVideoPlayerProps {
@@ -23,6 +23,8 @@ interface TVVideoPlayerProps {
   onExit: () => void;
 }
 
+const GOOGLE_CLIENT_KEY = 'AIzaSyAWGrfCCr7albM3lmCc937gx4uIphbpeKQ';
+
 export function TVVideoPlayer({
   video,
   playlist,
@@ -32,20 +34,23 @@ export function TVVideoPlayer({
   onExit,
 }: TVVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const progressBarRef = useRef<HTMLDivElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isBuffering, setIsBuffering] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showHUD, setShowHUD] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const lastTimeUpdate = useRef(0);
 
-  // 100% Native Same-Origin Stream with sub-second Google Edge CDN redirect
-  const videoStreamSrc = `/api/drive/video?id=${video.fileId || video.id}`;
+  // Direct Google Cloud Edge CDN URL (HTTP/2 persistent multiplexing, zero redirects, zero stutter)
+  const videoFileId = video.fileId || video.id;
+  const directStreamSrc = `https://www.googleapis.com/drive/v3/files/${videoFileId}?alt=media&key=${GOOGLE_CLIENT_KEY}`;
 
-  // Instant High-Res Poster to eliminate black screen
+  // Instant High-Res Poster to eliminate any initial black frame
   const posterUrl = video.thumbnailLink
     ? video.thumbnailLink.replace(/=s\d+/, '=s1200')
-    : `/api/drive/image?id=${video.fileId || video.id}`;
+    : `/api/drive/image?id=${videoFileId}`;
 
   // Auto-hide HUD after 4.5 seconds of inactivity
   useEffect(() => {
@@ -60,13 +65,13 @@ export function TVVideoPlayer({
     setIsBuffering(true);
     setCurrentTime(0);
     setIsPlaying(true);
+    lastTimeUpdate.current = 0;
 
     if (videoRef.current) {
-      // Auto set to full volume (100%)
       videoRef.current.volume = 1.0;
       videoRef.current.muted = false;
-
       videoRef.current.load();
+
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
         playPromise
@@ -74,27 +79,27 @@ export function TVVideoPlayer({
             setIsBuffering(false);
           })
           .catch(() => {
-            // If browser blocks unmuted autoplay without prior interaction:
-            // Start playback and immediately unmute on first TV remote click or key
+            // Autoplay fallback for strict browser audio policies:
+            // Starts video muted, immediately unmuting on first TV remote click or keypress
             if (videoRef.current) {
               videoRef.current.muted = true;
               videoRef.current.play().then(() => {
-                const enableFullAudio = () => {
+                const unmuteHandler = () => {
                   if (videoRef.current) {
                     videoRef.current.muted = false;
                     videoRef.current.volume = 1.0;
                   }
-                  window.removeEventListener('keydown', enableFullAudio);
-                  window.removeEventListener('click', enableFullAudio);
+                  window.removeEventListener('keydown', unmuteHandler);
+                  window.removeEventListener('click', unmuteHandler);
                 };
-                window.addEventListener('keydown', enableFullAudio, { once: true });
-                window.addEventListener('click', enableFullAudio, { once: true });
+                window.addEventListener('keydown', unmuteHandler, { once: true });
+                window.addEventListener('click', unmuteHandler, { once: true });
               }).catch(() => {});
             }
           });
       }
     }
-  }, [video.id, video.fileId]);
+  }, [videoFileId]);
 
   // Handle Play/Pause
   const togglePlay = useCallback(() => {
@@ -189,10 +194,10 @@ export function TVVideoPlayer({
       className="relative w-screen h-screen bg-[#0c0d10] select-none overflow-hidden flex items-center justify-center font-sans"
       onClick={() => setShowHUD(true)}
     >
-      {/* 100% Native In-App Cinema Video Element with Poster Frame */}
+      {/* 100% Native Edge Streaming Video Element */}
       <video
         ref={videoRef}
-        src={videoStreamSrc}
+        src={directStreamSrc}
         poster={posterUrl}
         preload="auto"
         autoPlay
@@ -205,9 +210,20 @@ export function TVVideoPlayer({
           setIsPlaying(true);
         }}
         onTimeUpdate={() => {
-          if (videoRef.current) {
-            setCurrentTime(videoRef.current.currentTime);
-            setDuration(videoRef.current.duration || 0);
+          if (!videoRef.current) return;
+          const ct = videoRef.current.currentTime;
+          const dur = videoRef.current.duration || 0;
+
+          // Direct DOM progress bar update for zero React render thrashing (smooth 60fps)
+          if (progressBarRef.current && dur > 0) {
+            progressBarRef.current.style.width = `${(ct / dur) * 100}%`;
+          }
+
+          // Throttle React state update to once per second for timer display
+          if (Math.abs(ct - lastTimeUpdate.current) >= 1) {
+            lastTimeUpdate.current = ct;
+            setCurrentTime(ct);
+            setDuration(dur);
             if (isBuffering) setIsBuffering(false);
           }
         }}
@@ -220,19 +236,21 @@ export function TVVideoPlayer({
         className="w-full h-full object-contain"
       />
 
-      {/* Instant Stream Loading Badge (Eliminates the black screen feeling) */}
+      {/* Shimmer Wave Buffering Badge */}
       {isBuffering && !hasError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
-          <div className="px-5 py-3.5 rounded-2xl bg-[#101113]/85 backdrop-blur-md border border-[#303238] flex items-center gap-3 shadow-2xl">
-            <Loader2 className="w-5 h-5 animate-spin text-[#D8C6A1]" />
-            <span className="text-xs font-mono text-[#F5F5F2] tracking-wide">
-              Loading Cinema Stream…
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 bg-black/35 backdrop-blur-[2px]">
+          <div className="px-6 py-4 rounded-2xl bg-[#101113]/90 border border-[#303238] flex flex-col items-center gap-2.5 shadow-2xl">
+            <TextShimmerWave className="text-xl font-medium text-[#D8C6A1]">
+              Alam&apos;s
+            </TextShimmerWave>
+            <span className="text-[11px] font-mono text-[#A3A6AD] tracking-wider uppercase">
+              Streaming Clip…
             </span>
           </div>
         </div>
       )}
 
-      {/* Internal In-App Error Overlay (Never opens Google Drive) */}
+      {/* Internal In-App Error Overlay */}
       {hasError && (
         <div className="absolute inset-0 bg-[#101113]/90 flex flex-col items-center justify-center text-center p-6 z-20">
           <div className="w-16 h-16 rounded-full bg-red-950/50 border border-red-800/40 flex items-center justify-center mb-4">
@@ -284,7 +302,7 @@ export function TVVideoPlayer({
                 'linear-gradient(to bottom, rgba(12,13,16,0.8) 0%, transparent 25%, transparent 70%, rgba(12,13,16,0.9) 100%)',
             }}
           >
-            {/* Top Bar with Exit and Clip Counter (No Mute Button) */}
+            {/* Top Bar with Exit and Clip Counter */}
             <div className="flex items-center justify-between pointer-events-auto">
               <button
                 onClick={onExit}
@@ -328,7 +346,8 @@ export function TVVideoPlayer({
                   }}
                 >
                   <div
-                    className="h-full bg-[#D8C6A1] rounded-full transition-all duration-100"
+                    ref={progressBarRef}
+                    className="h-full bg-[#D8C6A1] rounded-full transition-all duration-75"
                     style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
                   />
                 </div>

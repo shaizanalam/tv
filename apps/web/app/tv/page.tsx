@@ -28,6 +28,7 @@ import { SlideshowPlayer } from '@/components/slideshow/SlideshowPlayer';
 import { TVVideoPlayer } from '@/components/media/TVVideoPlayer';
 import { ProgressiveImage } from '@/components/media/ProgressiveImage';
 import { AlamsFrameLogo } from '@/components/brand/AlamsFrameLogo';
+import { TextShimmerWave } from '@/components/loading-ui/text-shimmer-wave';
 import { DriveItem } from '@/lib/types';
 
 /* ============================================================
@@ -1064,6 +1065,27 @@ function CinematicTVPlatform() {
         )}
       </AnimatePresence>
 
+      {/* Loading Album / Media Overlay */}
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[#101113]/85 backdrop-blur-md"
+          >
+            <div className="bg-[#191B1F] p-8 rounded-3xl max-w-sm w-full flex flex-col items-center text-center border border-[#303238] shadow-2xl">
+              <TextShimmerWave className="text-2xl font-serif font-light text-[#D8C6A1] mb-1">
+                {loadingTitle || "Alam's"}
+              </TextShimmerWave>
+              <span className="text-[11px] font-mono text-[#A3A6AD] tracking-wider uppercase">
+                Loading Private Cinema Library…
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ========================================================= */}
       {/* 7. VIRTUAL MOUSE CURSOR OVERLAY (Controllable via Phone)  */}
       {/* ========================================================= */}
@@ -1102,9 +1124,13 @@ export default function TVHomePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#101113] text-[#A3A6AD] flex items-center justify-center font-mono text-xs">
-          <Loader2 className="w-5 h-5 animate-spin text-[#D8C6A1] mr-2" />
-          Opening Alam&apos;s Frame Cinema…
+        <div className="min-h-screen bg-[#101113] text-[#A3A6AD] flex flex-col items-center justify-center gap-3 font-sans select-none">
+          <TextShimmerWave className="text-3xl font-serif font-light text-[#D8C6A1]">
+            Alam&apos;s
+          </TextShimmerWave>
+          <span className="text-xs font-mono text-[#A3A6AD] tracking-wider uppercase">
+            Opening Family Cinema…
+          </span>
         </div>
       }
     >
