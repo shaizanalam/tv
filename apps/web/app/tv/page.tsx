@@ -253,7 +253,7 @@ function CinematicTVPlatform() {
     visible: false,
   });
   const cursorHideTimer = useRef<NodeJS.Timeout | null>(null);
-  const lastProcessedCmdTime = useRef(0);
+  const lastProcessedSeq = useRef(0);
 
   const activeFeaturedTrip = VERIFIED_TRIPS[featuredIndex];
 
@@ -285,73 +285,111 @@ function CinematicTVPlatform() {
     });
   }, []);
 
-  // Phone Remote Polling Relay (120ms for smooth cursor sync)
+  // Phone Remote Polling Relay (Hyper-responsive 50ms queue polling with zero dropped commands)
   useEffect(() => {
+    let isMounted = true;
+    const processedIds = new Set<string>();
+
     const pollInterval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/remote/sync?code=482917&since=${lastProcessedCmdTime.current}`);
-        if (!res.ok) return;
+        const res = await fetch(`/api/remote/sync?code=482917&seq=${lastProcessedSeq.current}`, {
+          cache: 'no-store',
+        });
+        if (!res.ok || !isMounted) return;
         const data = await res.json();
 
-        if (data.command && data.command.timestamp > lastProcessedCmdTime.current) {
-          lastProcessedCmdTime.current = data.command.timestamp;
-          const cmd = data.command;
+        if (data.latestSeq && data.latestSeq > lastProcessedSeq.current) {
+          lastProcessedSeq.current = data.latestSeq;
+        }
 
-          if (cmd.type === 'dpad_right') {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
-          } else if (cmd.type === 'dpad_left') {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
-          } else if (cmd.type === 'dpad_up') {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
-          } else if (cmd.type === 'dpad_down') {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
-          } else if (cmd.type === 'ok') {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-          } else if (cmd.type === 'back') {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-          } else if (cmd.type === 'play_pause') {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
-          } else if (cmd.type === 'skip_next') {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n' }));
-          } else if (cmd.type === 'skip_prev') {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
-          } else if (cmd.type === 'switch_hub') {
-            if (cmd.payload?.tab === 'videos') setActiveTab('videos');
-            else setActiveTab('photos');
-          } else if (cmd.type === 'select_album') {
-            if (cmd.payload?.folderId) {
-              const idx = VERIFIED_TRIPS.findIndex(a => a.folderId === cmd.payload.folderId);
-              if (idx !== -1) setFeaturedIndex(idx);
-              openCollection(cmd.payload.folderId, cmd.payload.title, 'photos');
-            }
-          } else if (cmd.type === 'cursor_move') {
-            setTvCursor(prev => {
-              const newX = Math.min(98, Math.max(2, prev.x + (cmd.payload?.dx || 0)));
-              const newY = Math.min(98, Math.max(2, prev.y + (cmd.payload?.dy || 0)));
-              return { x: newX, y: newY, visible: true };
-            });
+        if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
+          for (const cmd of data.commands) {
+            if (processedIds.has(cmd.id)) continue;
+            processedIds.add(cmd.id);
 
-            if (cursorHideTimer.current) clearTimeout(cursorHideTimer.current);
-            cursorHideTimer.current = setTimeout(() => {
-              setTvCursor(c => ({ ...c, visible: false }));
-            }, 5000);
-          } else if (cmd.type === 'cursor_click') {
-            setTvCursor(prev => {
-              if (typeof window !== 'undefined') {
-                const clickX = (prev.x / 100) * window.innerWidth;
-                const clickY = (prev.y / 100) * window.innerHeight;
-                const targetElement = document.elementFromPoint(clickX, clickY) as HTMLElement | null;
-                if (targetElement) targetElement.click();
+            // Dispatch command
+            if (cmd.type === 'dpad_right') {
+              setFeaturedIndex(prev => (prev + 1) % VERIFIED_TRIPS.length);
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+            } else if (cmd.type === 'dpad_left') {
+              setFeaturedIndex(prev => (prev - 1 + VERIFIED_TRIPS.length) % VERIFIED_TRIPS.length);
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+            } else if (cmd.type === 'dpad_up') {
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+            } else if (cmd.type === 'dpad_down') {
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+            } else if (cmd.type === 'ok') {
+              openCollection(
+                activeFeaturedTrip.folderId,
+                activeFeaturedTrip.title,
+                activeTab === 'videos' ? 'videos' : 'photos'
+              );
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+            } else if (cmd.type === 'back') {
+              setActiveTab('featured');
+              setInSlideshow(false);
+              setInVideoPlayer(false);
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            } else if (cmd.type === 'play_pause') {
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+            } else if (cmd.type === 'skip_next') {
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n' }));
+            } else if (cmd.type === 'skip_prev') {
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
+            } else if (cmd.type === 'switch_hub') {
+              if (cmd.payload?.tab === 'videos') setActiveTab('videos');
+              else setActiveTab('photos');
+            } else if (cmd.type === 'select_album') {
+              if (cmd.payload?.folderId) {
+                const idx = VERIFIED_TRIPS.findIndex(a => a.folderId === cmd.payload.folderId);
+                if (idx !== -1) setFeaturedIndex(idx);
+                openCollection(cmd.payload.folderId, cmd.payload.title, 'photos');
               }
-              return { ...prev, visible: true };
-            });
+            } else if (cmd.type === 'cursor_move') {
+              // High sensitivity direct glide
+              setTvCursor(prev => {
+                const newX = Math.min(98, Math.max(2, prev.x + (cmd.payload?.dx || 0)));
+                const newY = Math.min(98, Math.max(2, prev.y + (cmd.payload?.dy || 0)));
+                return { x: newX, y: newY, visible: true };
+              });
+
+              if (cursorHideTimer.current) clearTimeout(cursorHideTimer.current);
+              cursorHideTimer.current = setTimeout(() => {
+                setTvCursor(c => ({ ...c, visible: false }));
+              }, 6000);
+            } else if (cmd.type === 'cursor_click') {
+              setTvCursor(prev => {
+                if (typeof window !== 'undefined') {
+                  const clickX = (prev.x / 100) * window.innerWidth;
+                  const clickY = (prev.y / 100) * window.innerHeight;
+                  const rawTarget = document.elementFromPoint(clickX, clickY) as HTMLElement | null;
+                  const clickable = rawTarget?.closest('button, a, [role="button"], input, select') as HTMLElement | null;
+                  
+                  if (clickable) {
+                    clickable.click();
+                  } else if (rawTarget) {
+                    rawTarget.click();
+                  } else {
+                    openCollection(
+                      activeFeaturedTrip.folderId,
+                      activeFeaturedTrip.title,
+                      activeTab === 'videos' ? 'videos' : 'photos'
+                    );
+                  }
+                }
+                return { ...prev, visible: true };
+              });
+            }
           }
         }
       } catch {}
-    }, 120);
+    }, 50);
 
-    return () => clearInterval(pollInterval);
-  }, []);
+    return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
+    };
+  }, [activeFeaturedTrip, activeTab]);
 
   // Open Collection for playback
   const openCollection = async (folderId: string, title: string, mode: 'photos' | 'videos') => {

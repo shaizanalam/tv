@@ -42,12 +42,15 @@ function RemoteControllerContent() {
   const [controlMode, setControlMode] = useState<'cursor' | 'dpad'>('cursor');
   const [fingerFeedbackPos, setFingerFeedbackPos] = useState<{ x: number; y: number } | null>(null);
 
-  // High-frequency throttle buffer for 60fps touchpad tracking
-  const lastTouchPos = useRef<{ x: number; y: number; time: number } | null>(null);
+  // High-performance non-blocking movement accumulator
+  const lastTouchPos = useRef<{ x: number; y: number } | null>(null);
   const touchStartPos = useRef<{ x: number; y: number; time: number } | null>(null);
   const touchPadRef = useRef<HTMLDivElement | null>(null);
   const isDragging = useRef(false);
-  const lastSyncSendTime = useRef(0);
+
+  // Delta accumulator and in-flight request protection
+  const pendingDelta = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+  const isSendingDelta = useRef(false);
 
   // Send Remote Command over sync channel
   const sendCommand = useCallback(
@@ -55,7 +58,7 @@ function RemoteControllerContent() {
       // Gentle mobile haptic vibration
       if (typeof window !== 'undefined' && 'vibrate' in navigator) {
         try {
-          navigator.vibrate(20);
+          navigator.vibrate(15);
         } catch {}
       }
 
@@ -68,7 +71,6 @@ function RemoteControllerContent() {
             command: {
               type,
               payload,
-              timestamp: Date.now(),
             },
           }),
         });
@@ -79,8 +81,40 @@ function RemoteControllerContent() {
     [pairCode]
   );
 
+  // Flush buffered cursor movement with zero connection blockage
+  const flushCursorDelta = useCallback(async () => {
+    if (isSendingDelta.current) return;
+    if (Math.abs(pendingDelta.current.dx) < 0.1 && Math.abs(pendingDelta.current.dy) < 0.1) return;
+
+    const dxToSend = pendingDelta.current.dx;
+    const dyToSend = pendingDelta.current.dy;
+    pendingDelta.current = { dx: 0, dy: 0 };
+
+    isSendingDelta.current = true;
+    try {
+      await fetch('/api/remote/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: pairCode,
+          command: {
+            type: 'cursor_move',
+            payload: { dx: dxToSend, dy: dyToSend },
+          },
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to sync cursor delta:', err);
+    } finally {
+      isSendingDelta.current = false;
+      // If new delta arrived while sending, flush immediately
+      if (Math.abs(pendingDelta.current.dx) >= 0.1 || Math.abs(pendingDelta.current.dy) >= 0.1) {
+        flushCursorDelta();
+      }
+    }
+  }, [pairCode]);
+
   // Mouse Cursor Touchpad Engine:
-  // Tracks delta movement on phone touchpad and sends delta percentages to TV
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     const rect = touchPadRef.current?.getBoundingClientRect();
@@ -94,7 +128,6 @@ function RemoteControllerContent() {
     lastTouchPos.current = {
       x: touch.clientX,
       y: touch.clientY,
-      time: Date.now(),
     };
     touchStartPos.current = {
       x: touch.clientX,
@@ -121,23 +154,20 @@ function RemoteControllerContent() {
       isDragging.current = true;
     }
 
-    // Convert pixel delta on phone into normalized TV movement multiplier
-    const sensitivity = 0.55;
+    // Convert pixel delta on phone into normalized TV movement multiplier (smooth glide)
+    const sensitivity = 0.75;
     const deltaX = (dx / rect.width) * 100 * sensitivity;
     const deltaY = (dy / rect.height) * 100 * sensitivity;
+
+    pendingDelta.current.dx += deltaX;
+    pendingDelta.current.dy += deltaY;
 
     lastTouchPos.current = {
       x: touch.clientX,
       y: touch.clientY,
-      time: Date.now(),
     };
 
-    // Throttle cursor movement sync to ~50ms for buttery responsiveness
-    const now = Date.now();
-    if (now - lastSyncSendTime.current > 40) {
-      lastSyncSendTime.current = now;
-      sendCommand('cursor_move', { dx: deltaX, dy: deltaY });
-    }
+    flushCursorDelta();
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -151,10 +181,13 @@ function RemoteControllerContent() {
     );
     const dt = Date.now() - touchStartPos.current.time;
 
-    // Fast tap with minimal travel (< 10px in under 300ms) = TV Cursor Click!
-    if (!isDragging.current || (totalDist < 12 && dt < 300)) {
+    // Fast tap with minimal travel (< 12px in under 320ms) = TV Cursor Click!
+    if (!isDragging.current || (totalDist < 12 && dt < 320)) {
       sendCommand('cursor_click');
     }
+
+    // Flush any remaining deltas
+    flushCursorDelta();
 
     touchStartPos.current = null;
     lastTouchPos.current = null;

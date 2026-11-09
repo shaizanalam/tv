@@ -42,9 +42,9 @@ export function TVVideoPlayer({
   const [hasError, setHasError] = useState(false);
   const [useIframeFallback, setUseIframeFallback] = useState(false);
 
-  // 1. High-Performance Range-Request Proxy Stream
-  const videoStreamSrc = `/api/drive/video?id=${video.fileId || video.id}`;
-  // 2. Google Drive native preview embed fallback (works 100% on any video, any codec)
+  // 1. High-Performance Direct Google Usercontent CDN Stream
+  const videoStreamSrc = `https://drive.usercontent.google.com/download?id=${video.fileId || video.id}&export=download&confirm=t`;
+  // 2. Google Drive native preview player fallback (guaranteed to transcode and play 100% of video formats/codecs)
   const iframePreviewSrc = `https://drive.google.com/file/d/${video.fileId || video.id}/preview`;
 
   // Auto-hide HUD after 4 seconds of inactivity
@@ -53,6 +53,13 @@ export function TVVideoPlayer({
     const timer = setTimeout(() => setShowHUD(false), 4000);
     return () => clearTimeout(timer);
   }, [showHUD, isPlaying]);
+
+  // Reset player state when video changes
+  useEffect(() => {
+    setUseIframeFallback(false);
+    setCurrentTime(0);
+    setIsPlaying(true);
+  }, [video.id, video.fileId]);
 
   // Handle Play/Pause
   const togglePlay = useCallback(() => {
