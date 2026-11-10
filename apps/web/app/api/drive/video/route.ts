@@ -146,10 +146,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Trigger background caching to local disk for future plays and seamless replaying
-  ensureFileCached(id).catch(() => {});
-
-  // CASE 2: Live Proxy from Google Drive with client Range header
+  // CASE 2: Live Direct Proxy from Google Drive with client Range header
   const clientRange = req.headers.get('range') || 'bytes=0-';
   const downloadUrl = `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`;
 

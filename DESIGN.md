@@ -157,3 +157,4 @@ export const MotionTokens = {
 - [x] D-pad remote navigation (`←`, `→`, `↑`, `↓`, `Enter`, `Back/Esc`) verified.
 - [x] Mobile touch gestures (horizontal swipe, tap to toggle HUD) verified.
 - [x] Server-side video disk cache and range streaming verified.
+

@@ -39,8 +39,6 @@ export function TVVideoPlayer({
   const [duration, setDuration] = useState(0);
   const [showHUD, setShowHUD] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [bufferPercent, setBufferPercent] = useState(0);
-  const isPlayingRef = useRef(true);
   const lastTimeUpdate = useRef(0);
   const retryCount = useRef(0);
 
@@ -65,39 +63,6 @@ export function TVVideoPlayer({
     }
   }, [currentIndex, playlist]);
 
-  // Buffer health check: ensures a 5-second cushion before unpausing so it plays in one continuous go
-  const checkBufferThreshold = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return false;
-    const ct = v.currentTime;
-    let ahead = 0;
-    for (let i = 0; i < v.buffered.length; i++) {
-      if (ct >= v.buffered.start(i) && ct <= v.buffered.end(i)) {
-        ahead = v.buffered.end(i) - ct;
-        break;
-      }
-    }
-    const dur = v.duration || 10;
-    const remaining = dur - ct;
-    // Require 5-second buffer cushion (or remaining duration if near end)
-    const required = Math.min(5, Math.max(1.5, remaining * 0.8));
-    const pct = Math.min(100, Math.round((ahead / required) * 100));
-    setBufferPercent(pct);
-
-    return ahead >= required || ahead >= remaining - 0.5;
-  }, []);
-
-  const resumePlaybackIfReady = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (checkBufferThreshold()) {
-      setIsBuffering(false);
-      if (v.paused && isPlayingRef.current) {
-        v.play().catch(() => {});
-      }
-    }
-  }, [checkBufferThreshold]);
-
   // Auto-hide HUD after 4.5 seconds of inactivity
   useEffect(() => {
     if (!showHUD) return;
@@ -110,10 +75,8 @@ export function TVVideoPlayer({
     retryCount.current = 0;
     setHasError(false);
     setIsBuffering(true);
-    setBufferPercent(0);
     setCurrentTime(0);
     setIsPlaying(true);
-    isPlayingRef.current = true;
     lastTimeUpdate.current = 0;
 
     if (videoRef.current) {
@@ -127,13 +90,11 @@ export function TVVideoPlayer({
   const togglePlay = useCallback(() => {
     if (!videoRef.current) return;
     if (videoRef.current.paused) {
-      videoRef.current.play();
+      videoRef.current.play().catch(() => {});
       setIsPlaying(true);
-      isPlayingRef.current = true;
     } else {
       videoRef.current.pause();
       setIsPlaying(false);
-      isPlayingRef.current = false;
     }
   }, []);
 
@@ -290,21 +251,29 @@ export function TVVideoPlayer({
         autoPlay
         playsInline
         onLoadStart={() => setIsBuffering(true)}
-        onWaiting={() => {
-          setIsBuffering(true);
-          // Pause momentarily to accumulate buffer cushion so it can play in one go
-          if (videoRef.current) {
-            videoRef.current.pause();
-          }
-        }}
-        onProgress={resumePlaybackIfReady}
-        onCanPlayThrough={() => {
+        onWaiting={() => setIsBuffering(true)}
+        onCanPlay={() => {
           setIsBuffering(false);
-          if (videoRef.current && videoRef.current.paused && isPlayingRef.current) {
-            videoRef.current.play().catch(() => {});
+          if (videoRef.current && videoRef.current.paused) {
+            videoRef.current.play().catch(() => {
+              if (videoRef.current) {
+                videoRef.current.muted = true;
+                videoRef.current.play().then(() => {
+                  const unmuteHandler = () => {
+                    if (videoRef.current) {
+                      videoRef.current.muted = false;
+                      videoRef.current.volume = 1.0;
+                    }
+                    window.removeEventListener('keydown', unmuteHandler);
+                    window.removeEventListener('click', unmuteHandler);
+                  };
+                  window.addEventListener('keydown', unmuteHandler, { once: true });
+                  window.addEventListener('click', unmuteHandler, { once: true });
+                }).catch(() => {});
+              }
+            });
           }
         }}
-        onCanPlay={resumePlaybackIfReady}
         onPlaying={() => {
           setIsBuffering(false);
           setIsPlaying(true);
@@ -324,7 +293,7 @@ export function TVVideoPlayer({
             lastTimeUpdate.current = ct;
             setCurrentTime(ct);
             setDuration(dur);
-            if (isBuffering) checkBufferThreshold();
+            if (isBuffering) setIsBuffering(false);
           }
         }}
         onEnded={onNext}
@@ -335,17 +304,17 @@ export function TVVideoPlayer({
             return;
           }
 
-          // Auto-reconnect with cache busting up to 3 times before displaying notice
-          if (retryCount.current < 3 && videoRef.current) {
+          // Safe reconnect after 2 seconds (avoids rapid abort loops on large files)
+          if (retryCount.current < 2 && videoRef.current) {
             retryCount.current += 1;
-            console.warn('Video streaming hiccup, reconnecting attempt', retryCount.current);
+            console.warn('Video reconnect attempt', retryCount.current);
             setTimeout(() => {
               if (videoRef.current) {
                 videoRef.current.src = `/api/drive/video?id=${videoFileId}&retry=${Date.now()}`;
                 videoRef.current.load();
                 videoRef.current.play().catch(() => {});
               }
-            }, 750);
+            }, 2000);
             return;
           }
 
@@ -356,7 +325,7 @@ export function TVVideoPlayer({
         className="w-full h-full object-contain"
       />
 
-      {/* Shimmer Wave Buffering Badge with Buffer Percentage */}
+      {/* Shimmer Wave Buffering Badge */}
       {isBuffering && !hasError && (
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 bg-black/40 backdrop-blur-[2px]">
           <div className="px-7 py-5 rounded-2xl bg-[#101113]/95 border border-[#303238] flex flex-col items-center gap-2.5 shadow-2xl">
@@ -364,9 +333,7 @@ export function TVVideoPlayer({
               Alam&apos;s
             </TextShimmerWave>
             <span className="text-[11px] font-mono text-[#A3A6AD] tracking-wider uppercase">
-              {bufferPercent > 0
-                ? `Buffering for Smooth Playback · ${bufferPercent}%`
-                : 'Connecting Cinema Stream…'}
+              Streaming Cinema Clip…
             </span>
           </div>
         </div>
