@@ -707,10 +707,10 @@ function CinematicTVPlatform() {
         <AnimatePresence mode="wait">
           <motion.div
             key={activeFeaturedTrip.id}
-            initial={{ opacity: 0, scale: 1.03 }}
+            initial={{ opacity: 0, scale: 1.04 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
+            transition={{ duration: 0.7, ease: 'easeOut' }}
             className="relative w-full h-full"
           >
             {/* Progressive Image: Micro-blurup to High-Res Crisp */}
@@ -721,9 +721,10 @@ function CinematicTVPlatform() {
               highResSize={1800}
             />
 
-            {/* Apple TV-style Multi-Layer Gradient Scrim (Natural contrast without muddy shadows) */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#101113] via-[#101113]/75 to-[#101113]/25" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#101113] via-[#101113]/60 to-transparent" />
+            {/* Deep Multi-Stop Gradient Scrim (Calm, high-contrast dark field for 10-foot legibility) */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#101113] via-[#101113]/95 via-45% to-[#101113]/30" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#101113] via-[#101113]/70 via-30% to-transparent" />
+            <div className="absolute inset-0 bg-black/20" />
           </motion.div>
         </AnimatePresence>
       </div>
@@ -808,22 +809,23 @@ function CinematicTVPlatform() {
           ))}
         </nav>
 
-        {/* Right Utility Deck: Clock, Phone Remote, Logout */}
-        <div className="hidden sm:flex items-center gap-2.5">
-          {/* Live Apple Glass Clock */}
-          <div className="flex items-center gap-2 bg-[#191B1F]/80 border border-[#303238] px-3.5 py-1.5 rounded-full text-xs font-medium text-[#F5F5F2] shadow-sm">
-            <Clock className="w-3.5 h-3.5 text-[#A3A6AD]" />
+        {/* Right Utility Deck: Clock, Phone Remote Chip, Logout */}
+        <div className="hidden sm:flex items-center gap-3">
+          {/* Live Clock */}
+          <div className="flex items-center gap-2 bg-[#191B1F]/90 border border-[#303238] px-3.5 py-1.5 rounded-full text-xs font-medium text-[#F5F5F2] shadow-sm">
+            <Clock className="w-3.5 h-3.5 text-[#D8C6A1]" />
             <span>{currentTimeStr || '--:--'}</span>
           </div>
 
-          {/* Phone Remote Pill */}
+          {/* Phone Remote Status Chip */}
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowQRModal(true)}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] border border-[#303238] text-xs font-medium text-[#D8C6A1] cursor-pointer shadow-sm transition-colors"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#191B1F]/90 hover:bg-[#22252A] border border-[#303238] text-xs font-medium text-[#D8C6A1] cursor-pointer shadow-sm transition-colors"
+            title="Scan QR Code to use phone as TV remote"
           >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>Phone Remote</span>
+            <Smartphone className="w-3.5 h-3.5 text-[#D8C6A1]" />
+            <span>Phone Remote · 482917</span>
           </motion.button>
 
           {/* Vault Lock / Sign Out */}
@@ -833,138 +835,157 @@ function CinematicTVPlatform() {
               await fetch('/api/auth/logout', { method: 'POST' });
               window.location.href = '/login';
             }}
-            className="w-8 h-8 rounded-full bg-[#191B1F]/80 hover:bg-[#22252A] border border-[#303238] flex items-center justify-center text-[#A3A6AD] hover:text-[#D8C6A1] cursor-pointer shadow-sm transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#191B1F]/90 hover:bg-[#22252A] border border-[#303238] text-xs text-[#A3A6AD] hover:text-[#D8C6A1] cursor-pointer shadow-sm transition-colors"
             title="Lock Vault & Sign Out"
           >
             <LogOut className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-medium hidden lg:inline">Sign Out</span>
           </motion.button>
         </div>
       </header>
 
       {/* ========================================================= */}
+      {/* ========================================================= */}
       {/* 3. HERO CONTENT METADATA & ACTIONS                        */}
       {/* ========================================================= */}
-      <main className="relative z-20 flex flex-col justify-end px-4 sm:px-6 lg:px-12 pt-3 sm:pt-1 pb-4 max-w-4xl">
-        <div className="space-y-2 sm:space-y-2.5">
-          {/* Metadata Badges */}
-          <div className="flex flex-wrap items-center gap-2 text-xs font-mono tracking-wider text-[#A3A6AD]">
-            <span className="px-2.5 py-0.5 rounded-full bg-[#191B1F] border border-[#303238] text-[#D8C6A1] font-semibold text-[11px]">
-              {activeFeaturedTrip.year}
-            </span>
-            <span>·</span>
-            <span className="truncate">{activeFeaturedTrip.location}</span>
-            <span>·</span>
-            <span className="text-[#F5F5F2] font-semibold">
-              {activeTab === 'videos'
-                ? `${activeFeaturedTrip.videoCount} Video Clips`
-                : `${activeFeaturedTrip.photoCount} Photographs`}
-            </span>
-          </div>
-
-          {/* Large Editorial Headline */}
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif font-light tracking-tight text-[#F5F5F2] leading-tight drop-shadow-md">
-            {activeFeaturedTrip.title}
-          </h1>
-
-          <p className="text-xs sm:text-sm text-[#A3A6AD] max-w-xl font-light leading-relaxed line-clamp-2 sm:line-clamp-none">
-            {activeFeaturedTrip.subtitle}
-          </p>
-
-          {/* Action Deck (Apple TV / Touch-Friendly Pill Buttons) */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 pt-2">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() =>
-                openCollection(
-                  activeFeaturedTrip.folderId,
-                  activeFeaturedTrip.title,
-                  activeTab === 'videos' ? 'videos' : 'photos'
-                )
-              }
-              className={`w-full sm:w-auto px-6 py-3 sm:py-2.5 rounded-full font-semibold text-xs tracking-wide shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                focusZone === 'hero' && heroActionFocus === 'primary'
-                  ? 'bg-[#D8C6A1] text-[#101113] ring-2 ring-[#D8C6A1] ring-offset-2 ring-offset-[#101113] scale-[1.02]'
-                  : 'bg-[#F5F5F2] hover:bg-[#E5D7B8] text-[#101113]'
-              }`}
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin text-[#101113]" />
-              ) : activeTab === 'videos' ? (
-                <Film className="w-4 h-4 fill-current text-[#101113]" />
-              ) : (
-                <Play className="w-4 h-4 fill-[#101113]" />
-              )}
-              <span>
-                {activeTab === 'videos' ? 'Play Cinema Clips' : 'Play Collection'}
+      <main className="relative z-20 flex flex-col justify-end px-4 sm:px-6 lg:px-12 pt-3 sm:pt-1 pb-3 max-w-4xl">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeFeaturedTrip.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+            className="space-y-2.5 sm:space-y-3"
+          >
+            {/* Metadata Badges */}
+            <div className="flex flex-wrap items-center gap-2.5 text-xs sm:text-sm font-medium tracking-wide text-[#C5C7CC]">
+              <span className="px-3 py-0.5 rounded-full bg-[#191B1F] border border-[#303238] text-[#D8C6A1] font-semibold text-xs shadow-sm">
+                {activeFeaturedTrip.year}
               </span>
-              <kbd className="hidden sm:inline ml-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#101113]/15 border border-black/10">
-                OK
-              </kbd>
-            </motion.button>
+              <span>·</span>
+              <span className="text-[#E5E2DC]">{activeFeaturedTrip.location}</span>
+              <span>·</span>
+              <span className="text-[#D8C6A1] font-semibold">
+                {activeTab === 'videos'
+                  ? `${activeFeaturedTrip.videoCount} Video Clips`
+                  : `${activeFeaturedTrip.photoCount} Photographs`}
+              </span>
+            </div>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() =>
-                openCollection(
-                  activeFeaturedTrip.folderId,
-                  activeFeaturedTrip.title,
-                  activeTab === 'videos' ? 'photos' : 'videos'
-                )
-              }
-              className={`w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-full text-[#F5F5F2] border font-medium text-xs tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all ${
-                focusZone === 'hero' && heroActionFocus === 'secondary'
-                  ? 'bg-[#22252A] border-[#D8C6A1] ring-2 ring-[#D8C6A1] ring-offset-2 ring-offset-[#101113]'
-                  : 'bg-[#191B1F]/90 hover:bg-[#22252A] border-[#303238]'
-              }`}
-            >
-              {activeTab === 'videos' ? (
-                <>
-                  <ImageIcon className="w-3.5 h-3.5 text-[#D8C6A1]" />
-                  <span>Explore Photos ({activeFeaturedTrip.photoCount})</span>
-                </>
-              ) : (
-                <>
-                  <Film className="w-3.5 h-3.5 text-[#D8C6A1]" />
-                  <span>Watch Videos ({activeFeaturedTrip.videoCount})</span>
-                </>
-              )}
-            </motion.button>
-          </div>
-        </div>
+            {/* Large Editorial Headline */}
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif font-light tracking-tight text-[#F5F5F2] leading-tight drop-shadow-md">
+              {activeFeaturedTrip.title}
+            </h1>
+
+            {/* Subtitle with high-contrast legibility for 3m viewing distance */}
+            <p className="text-sm sm:text-base md:text-lg text-[#E5E2DC] max-w-2xl font-light leading-relaxed drop-shadow line-clamp-2 sm:line-clamp-none">
+              {activeFeaturedTrip.subtitle}
+            </p>
+
+            {/* Action Deck (Apple TV / Touch-Friendly Pill Buttons) */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() =>
+                  openCollection(
+                    activeFeaturedTrip.folderId,
+                    activeFeaturedTrip.title,
+                    activeTab === 'videos' ? 'videos' : 'photos'
+                  )
+                }
+                className={`w-full sm:w-auto px-7 py-3 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm tracking-wide shadow-xl flex items-center justify-center gap-2.5 cursor-pointer transition-all ${
+                  focusZone === 'hero' && heroActionFocus === 'primary'
+                    ? 'bg-[#D8C6A1] text-[#101113] ring-4 ring-[#D8C6A1] ring-offset-4 ring-offset-[#101113] scale-105 shadow-[0_0_36px_rgba(216,198,161,0.45)]'
+                    : 'bg-[#F5F5F2] hover:bg-[#E5D7B8] text-[#101113]'
+                }`}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#101113]" />
+                ) : activeTab === 'videos' ? (
+                  <Film className="w-4 h-4 fill-current text-[#101113]" />
+                ) : (
+                  <Play className="w-4 h-4 fill-[#101113]" />
+                )}
+                <span>
+                  {activeTab === 'videos' ? 'Play Cinema Clips' : 'Play Collection'}
+                </span>
+                <span className="hidden sm:inline-flex items-center text-[11px] font-mono font-medium text-[#101113]/70 ml-1">
+                  · Press OK
+                </span>
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() =>
+                  openCollection(
+                    activeFeaturedTrip.folderId,
+                    activeFeaturedTrip.title,
+                    activeTab === 'videos' ? 'photos' : 'videos'
+                  )
+                }
+                className={`w-full sm:w-auto px-6 py-3 sm:py-2.5 rounded-full text-[#F5F5F2] border font-medium text-xs sm:text-sm tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all ${
+                  focusZone === 'hero' && heroActionFocus === 'secondary'
+                    ? 'bg-[#22252A] border-[#D8C6A1] ring-4 ring-[#D8C6A1] ring-offset-4 ring-offset-[#101113] scale-105 shadow-[0_0_30px_rgba(216,198,161,0.35)]'
+                    : 'bg-[#191B1F]/90 hover:bg-[#22252A] border-[#303238]'
+                }`}
+              >
+                {activeTab === 'videos' ? (
+                  <>
+                    <ImageIcon className="w-4 h-4 text-[#D8C6A1]" />
+                    <span>Explore Photos ({activeFeaturedTrip.photoCount})</span>
+                  </>
+                ) : (
+                  <>
+                    <Film className="w-4 h-4 text-[#D8C6A1]" />
+                    <span>Watch Videos ({activeFeaturedTrip.videoCount})</span>
+                  </>
+                )}
+              </motion.button>
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* ========================================================= */}
       {/* 4. CURATED TRIPS CAROUSEL (Touch Track on Phone, Grid on TV) */}
       {/* ========================================================= */}
-      <section className="relative z-20 px-4 sm:px-6 lg:px-12 pb-5 pt-3">
+      <section className="relative z-20 px-4 sm:px-6 lg:px-12 pb-4 pt-2">
         <div className="flex items-center justify-between pb-2.5">
           <div className="flex items-center gap-2.5">
-            <h3 className="text-xs font-mono uppercase tracking-widest text-[#D8C6A1] font-semibold">
+            <h3 className="text-xs sm:text-sm uppercase tracking-wider text-[#D8C6A1] font-semibold">
               {activeTab === 'videos'
                 ? 'Video Collections'
                 : activeTab === 'photos'
                 ? 'Curated Photo Albums'
                 : 'Curated Trips'}
             </h3>
-            <span className="text-[11px] text-[#A3A6AD]/70 font-mono hidden sm:inline">
-              D-pad [&larr; &rarr;] to select · [OK] to launch
+            <span className="text-[11px] text-[#A3A6AD]/70 hidden sm:inline">
+              Use D-pad [&larr; &rarr;] to navigate · [OK] to launch
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs font-mono text-[#A3A6AD]">
-            <span className="text-[#F5F5F2] font-semibold">{featuredIndex + 1}</span>
-            <span className="text-[#303238]">/</span>
-            <span>{VERIFIED_TRIPS.length}</span>
+          {/* 6 Elegant Pill Indicators */}
+          <div className="flex items-center gap-1.5">
+            {VERIFIED_TRIPS.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  featuredIndex === i ? 'w-6 bg-[#D8C6A1]' : 'w-1.5 bg-[#303238]'
+                }`}
+              />
+            ))}
           </div>
         </div>
 
         {/* 6 Landscape Collection Cards */}
-        <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none gap-3 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 lg:grid-cols-6 sm:gap-3.5 lg:gap-4.5">
+        <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none gap-3 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 lg:grid-cols-6 sm:gap-3.5 lg:gap-4">
           {VERIFIED_TRIPS.map((trip, idx) => {
             const isSelected = featuredIndex === idx;
             const isFocused = focusZone === 'cards' && isSelected;
+            const isOtherFocused = focusZone === 'cards' && !isSelected;
 
             return (
               <motion.div
@@ -981,27 +1002,29 @@ function CinematicTVPlatform() {
                     activeTab === 'videos' ? 'videos' : 'photos'
                   );
                 }}
-                whileHover={{ y: -4 }}
+                whileHover={{ y: -3 }}
                 transition={{ type: 'spring', stiffness: 420, damping: 26 }}
                 className={`snap-center shrink-0 w-[68vw] sm:w-auto relative rounded-2xl overflow-hidden aspect-[16/10] cursor-pointer transition-all border ${
                   isFocused
-                    ? 'ring-2 ring-[#D8C6A1] ring-offset-4 ring-offset-[#101113] shadow-[0_20px_48px_rgba(0,0,0,0.85),0_0_28px_rgba(216,198,161,0.25)] scale-[1.03] z-10 border-[#D8C6A1]'
+                    ? 'border-2 border-[#D8C6A1] ring-2 ring-[#D8C6A1]/60 shadow-[0_0_40px_rgba(216,198,161,0.4),0_24px_60px_rgba(0,0,0,0.95)] scale-[1.08] z-30'
                     : isSelected
-                    ? 'ring-1 ring-[#D8C6A1]/70 border-[#D8C6A1]/50 shadow-lg'
-                    : 'opacity-75 hover:opacity-100 border-[#303238]'
+                    ? 'ring-1 ring-[#D8C6A1]/70 border-[#D8C6A1]/50 shadow-lg scale-[1.02]'
+                    : isOtherFocused
+                    ? 'opacity-50 scale-[0.98] border-[#303238] hover:opacity-85'
+                    : 'opacity-85 hover:opacity-100 border-[#303238]'
                 }`}
               >
-                {/* Top Corner Media Count Pill */}
+                {/* Top Corner Single Media Count Pill */}
                 <div className="absolute top-2.5 left-2.5 z-10">
-                  <span className="px-2 py-0.5 rounded-full bg-[#101113]/70 backdrop-blur-md border border-white/10 text-[10px] font-mono text-[#D8C6A1] flex items-center gap-1 shadow">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#101113]/85 backdrop-blur-md border border-white/10 text-[11px] font-medium text-[#D8C6A1] flex items-center gap-1.5 shadow">
                     {activeTab === 'videos' ? (
                       <>
-                        <Film className="w-2.5 h-2.5" />
+                        <Film className="w-3 h-3" />
                         <span>{trip.videoCount}</span>
                       </>
                     ) : (
                       <>
-                        <ImageIcon className="w-2.5 h-2.5" />
+                        <ImageIcon className="w-3 h-3" />
                         <span>{trip.photoCount}</span>
                       </>
                     )}
@@ -1017,21 +1040,16 @@ function CinematicTVPlatform() {
                   highResSize={600}
                 />
 
-                {/* Soft Bottom-Only Scrim (Keeps imagery bright, text 100% legible) */}
+                {/* Soft Bottom-Only Scrim */}
                 <div className="absolute inset-0 bg-gradient-to-t from-[#101113]/95 via-[#101113]/40 to-transparent" />
 
-                {/* Card Title & Counts */}
-                <div className="absolute bottom-3 left-3.5 right-3.5 text-white">
+                {/* Card Title & Location (Single count removed to eliminate redundancy) */}
+                <div className="absolute bottom-2.5 left-3 right-3 text-white">
                   <h4 className="text-xs sm:text-sm font-semibold tracking-tight text-[#F5F5F2] truncate">
                     {trip.title}
                   </h4>
-                  <div className="flex items-center justify-between text-[10px] text-[#A3A6AD] font-mono mt-0.5">
-                    <span>{trip.year}</span>
-                    <span className="text-[#D8C6A1]/90 font-medium">
-                      {activeTab === 'videos'
-                        ? `${trip.videoCount} clips`
-                        : `${trip.photoCount} photos`}
-                    </span>
+                  <div className="text-[10px] sm:text-[11px] text-[#A3A6AD] font-normal truncate mt-0.5">
+                    <span>{trip.location}</span> · <span>{trip.year}</span>
                   </div>
                 </div>
               </motion.div>
@@ -1044,17 +1062,21 @@ function CinematicTVPlatform() {
       {/* 5. EDITORIAL HIGHLIGHT MOMENTS (Spotlight Mode Only)       */}
       {/* ========================================================= */}
       {activeTab === 'featured' && (
-        <section className="relative z-20 px-4 sm:px-6 lg:px-12 pb-7 pt-1">
-          <div className="flex items-center justify-between pb-2.5">
-            <h3 className="text-xs font-mono uppercase tracking-widest text-[#A3A6AD] font-semibold">
+        <section className="relative z-20 px-4 sm:px-6 lg:px-12 pb-6 pt-1">
+          <div className="flex items-center justify-between pb-2">
+            <h3
+              className={`text-xs sm:text-sm uppercase tracking-wider font-semibold transition-colors ${
+                focusZone === 'highlights' ? 'text-[#D8C6A1]' : 'text-[#A3A6AD]'
+              }`}
+            >
               Highlight Moments · {activeFeaturedTrip.title}
             </h3>
-            <span className="text-[11px] text-[#A3A6AD]/60 font-mono">
+            <span className="text-[11px] text-[#A3A6AD]/60">
               Curated Shots
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4">
             {activeFeaturedTrip.highlightShots.map((shot, sIdx) => {
               const isHighlightFocused = focusZone === 'highlights' && highlightFocusIndex === sIdx;
 
@@ -1065,29 +1087,30 @@ function CinematicTVPlatform() {
                     openCollection(activeFeaturedTrip.folderId, activeFeaturedTrip.title, 'photos')
                   }
                   whileHover={{ y: -2 }}
-                  className={`group relative rounded-xl overflow-hidden bg-[#191B1F] border p-3 flex items-center gap-3.5 cursor-pointer transition-all ${
+                  className={`group relative rounded-2xl overflow-hidden bg-[#191B1F] border p-3 flex items-center gap-3.5 cursor-pointer transition-all ${
                     isHighlightFocused
-                      ? 'border-[#D8C6A1] ring-2 ring-[#D8C6A1]/40 bg-[#22252A]'
+                      ? 'border-2 border-[#D8C6A1] ring-2 ring-[#D8C6A1]/50 bg-[#22252A] scale-[1.02] shadow-[0_0_24px_rgba(216,198,161,0.3)]'
                       : 'border-[#303238] hover:border-[#D8C6A1]/40 hover:bg-[#22252A]/60'
                   }`}
                 >
-                  <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 relative">
+                  {/* Widescreen 16:9 Thumbnail */}
+                  <div className="w-24 h-16 sm:w-28 sm:h-18 lg:w-32 lg:h-20 rounded-xl overflow-hidden shrink-0 relative aspect-[16/10]">
                     <ProgressiveImage
                       fileId={shot.fileId}
                       alt={shot.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       lowResSize={180}
-                      highResSize={360}
+                      highResSize={400}
                     />
                   </div>
                   <div className="overflow-hidden">
-                    <span className="text-[9px] font-mono uppercase text-[#D8C6A1] tracking-wider block font-semibold">
+                    <span className="text-[10px] uppercase text-[#D8C6A1] tracking-wider block font-semibold">
                       {shot.tag}
                     </span>
-                    <h5 className="text-xs font-semibold text-[#F5F5F2] truncate mt-0.5">
+                    <h5 className="text-sm font-semibold text-[#F5F5F2] truncate mt-0.5">
                       {shot.title}
                     </h5>
-                    <p className="text-[10px] text-[#A3A6AD] truncate font-light">
+                    <p className="text-xs text-[#A3A6AD] truncate font-light mt-0.5">
                       {shot.subtitle}
                     </p>
                   </div>

@@ -91,6 +91,37 @@ export function TVVideoPlayer({
     const handleKeyDown = (e: KeyboardEvent) => {
       setShowHUD(true);
 
+      if (hasError) {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          onNext();
+          return;
+        }
+        if (e.key === 'r' || e.key === 'R') {
+          e.preventDefault();
+          setHasError(false);
+          setIsBuffering(true);
+          retryCount.current = 0;
+          if (videoRef.current) {
+            videoRef.current.src = `/api/drive/video?id=${videoFileId}&retry=${Date.now()}`;
+            videoRef.current.load();
+            videoRef.current.play().catch(() => {});
+          }
+          return;
+        }
+        if (
+          e.key === 'Escape' ||
+          e.key === 'Backspace' ||
+          e.keyCode === 10009 ||
+          e.keyCode === 461 ||
+          e.keyCode === 4
+        ) {
+          e.preventDefault();
+          onExit();
+          return;
+        }
+      }
+
       switch (e.key) {
         case ' ':
         case 'Enter':
@@ -191,6 +222,14 @@ export function TVVideoPlayer({
       className="relative w-screen h-screen bg-[#0c0d10] select-none overflow-hidden flex items-center justify-center font-sans"
       onClick={() => setShowHUD(true)}
     >
+      {/* Instant High-Res Poster Underlay (eliminates any black frame during buffer) */}
+      <img
+        src={posterUrl}
+        alt=""
+        className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none transition-opacity duration-300 z-0"
+        style={{ opacity: isPlaying && currentTime > 0.2 ? 0 : 1 }}
+      />
+
       {/* 100% Native Edge Streaming Video Element */}
       <video
         ref={videoRef}
