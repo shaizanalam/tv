@@ -874,12 +874,12 @@ function CinematicTVPlatform() {
             </div>
 
             {/* Large Editorial Headline */}
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif font-light tracking-tight text-[#F5F5F2] leading-tight drop-shadow-md">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif font-light tracking-tight text-[#F5F5F2] leading-tight drop-shadow-md text-balance">
               {activeFeaturedTrip.title}
             </h1>
 
             {/* Subtitle with high-contrast legibility for 3m viewing distance */}
-            <p className="text-sm sm:text-base md:text-lg text-[#E5E2DC] max-w-2xl font-light leading-relaxed drop-shadow line-clamp-2 sm:line-clamp-none">
+            <p className="text-sm sm:text-base md:text-lg text-[#E5E2DC] max-w-2xl font-light leading-relaxed drop-shadow line-clamp-2 sm:line-clamp-none text-pretty">
               {activeFeaturedTrip.subtitle}
             </p>
 
@@ -1003,7 +1003,8 @@ function CinematicTVPlatform() {
                   );
                 }}
                 whileHover={{ y: -3 }}
-                transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 className={`snap-center shrink-0 w-[68vw] sm:w-auto relative rounded-2xl overflow-hidden aspect-[16/10] cursor-pointer transition-all border ${
                   isFocused
                     ? 'border-2 border-[#D8C6A1] ring-2 ring-[#D8C6A1]/60 shadow-[0_0_40px_rgba(216,198,161,0.4),0_24px_60px_rgba(0,0,0,0.95)] scale-[1.08] z-30'
@@ -1087,6 +1088,8 @@ function CinematicTVPlatform() {
                     openCollection(activeFeaturedTrip.folderId, activeFeaturedTrip.title, 'photos')
                   }
                   whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                   className={`group relative rounded-2xl overflow-hidden bg-[#191B1F] border p-3 flex items-center gap-3.5 cursor-pointer transition-all ${
                     isHighlightFocused
                       ? 'border-2 border-[#D8C6A1] ring-2 ring-[#D8C6A1]/50 bg-[#22252A] scale-[1.02] shadow-[0_0_24px_rgba(216,198,161,0.3)]'
